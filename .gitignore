@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+/Agent/Win32
+/Agent/__recovery
+/Agent/__history
+/ConfigServer/Win32
+/ConfigServer/__history
+/ConfigServer/__recovery
