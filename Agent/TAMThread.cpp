@@ -1,5 +1,5 @@
 /*!
-Copyright 2019-2020 Maxim Noltmeer (m.noltmeer@gmail.com)
+Copyright 2019-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 */
 //---------------------------------------------------------------------------
 
@@ -9,20 +9,8 @@ Copyright 2019-2020 Maxim Noltmeer (m.noltmeer@gmail.com)
 #include "..\..\work-functions\MyFunc.h"
 #include "TAMThread.h"
 #pragma package(smart_init)
-//---------------------------------------------------------------------------
 
-//   Important: Methods and properties of objects in VCL can only be
-//   used in a method called using Synchronize, for example:
-//
-//      Synchronize(&UpdateCaption);
-//
-//   where UpdateCaption could look like:
-//
-//      void __fastcall TAMThread::UpdateCaption()
-//      {
-//        Form1->Caption = "Updated in a thread";
-//      }
-//---------------------------------------------------------------------------
+extern String UsedAppLogDir; //вказуємо директорію для логування для функцій з MyFunc.h
 
 __fastcall TAMThread::TAMThread(bool CreateSuspended)
 	: TThread(CreateSuspended)
@@ -39,9 +27,11 @@ void __fastcall TAMThread::Execute()
 	 }
   catch (Exception &e)
 	 {
-	   SaveLog("exceptions.log", "ID: " + IntToStr(Connection->ServerID) + ", " +
-								 "Thread: " + IntToStr(int(Connection->ServerThreadID)) + ", " +
-								 "TAMThread::Execute(): " + e.ToString());
+	   SaveLogToUserFolder("exceptions.log",
+						   UsedAppLogDir,
+						   "ID: " + IntToStr(Connection->ID) + ", " +
+						   "Thread: " + IntToStr(int(Connection->ThreadID)) + ", " +
+						   "TAMThread::Execute: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -53,16 +43,16 @@ void __fastcall TAMThread::Work()
   if (!Conn)
   	throw new Exception("Некоректний вказівник TExchangeConnect*");
 
-  passed = Conn->ConnectionConfig->MonitoringInterval;
-  interval = Conn->ConnectionConfig->MonitoringInterval;
+  passed = Conn->Config->MonitoringInterval;
+  interval = Conn->Config->MonitoringInterval;
 
   while (!Terminated)
 	{
 	  if (Conn->Working() &&
-		  Conn->ConnectionConfig->StartAtTime &&
-		  Conn->ConnectionConfig->TimeStart > Time())
+		  (int)Conn->Config->StartAtTime > -1 &&
+		  Conn->Config->StartAtTime > Time())
 		{
-		  Conn->ServerStatus = "Очікування...";
+		  Conn->Status = "Очікування...";
 		  this->Sleep(300);
 		}
 	  else if (Conn->Working() && (passed >= interval))
@@ -77,11 +67,11 @@ void __fastcall TAMThread::Work()
 			  case ES_SUCC_DL_UL: Synchronize(&ShowInfoNewUpload);
 								  Synchronize(&ShowInfoNewDownload);
 								  break;
-			  case ES_ERROR_STOP: Terminate(); break;
+			  //case ES_ERROR_STOP: Terminate(); break;
 			  case ES_NO_EXCHANGE: break;
 			}
 
-		  if (Conn->ConnectionConfig->RunOnce)
+		  if (Conn->Config->RunOnce)
 			Conn->Stop();
 		}
 	  else if (Conn->Working() && (passed < interval))
@@ -97,29 +87,62 @@ void __fastcall TAMThread::Work()
 
 void __fastcall TAMThread::ShowInfoStatus()
 {
-  InfoIcon->BalloonFlags = bfInfo;
-  InfoIcon->BalloonHint = "[" + IntToStr(Conn->ServerID) + "] " +
-						  Conn->ServerCaption + ": " +
-						  Conn->ServerStatus;
-  InfoIcon->ShowBalloonHint();
+  try
+	 {
+       InfoIcon->BalloonFlags = bfInfo;
+	   InfoIcon->BalloonHint = "[" + IntToStr(Conn->ID) + "] " +
+								Conn->Caption + ": " +
+								Conn->Status;
+	   InfoIcon->ShowBalloonHint();
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("exceptions.log",
+						   UsedAppLogDir,
+						   "ID: " + IntToStr(Connection->ID) + ", " +
+						   "Thread: " + IntToStr(int(Connection->ThreadID)) + ", " +
+						   "TAMThread::ShowInfoStatus: " + e.ToString());
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __fastcall TAMThread::ShowInfoNewDownload()
 {
-  InfoIcon->BalloonFlags = bfInfo;
-  InfoIcon->BalloonHint = "[" + IntToStr(Conn->ServerID) + "] " +
-						  Conn->ServerCaption + ": Завантажені нові файли";
-  InfoIcon->ShowBalloonHint();
+  try
+	 {
+       InfoIcon->BalloonFlags = bfInfo;
+	   InfoIcon->BalloonHint = "[" + IntToStr(Conn->ID) + "] " +
+							   Conn->Caption + ": Завантажені нові файли";
+	   InfoIcon->ShowBalloonHint();
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("exceptions.log",
+						   UsedAppLogDir,
+						   "ID: " + IntToStr(Connection->ID) + ", " +
+						   "Thread: " + IntToStr(int(Connection->ThreadID)) + ", " +
+						   "TAMThread::ShowInfoNewDownload: " + e.ToString());
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __fastcall TAMThread::ShowInfoNewUpload()
 {
-  InfoIcon->BalloonFlags = bfInfo;
-  InfoIcon->BalloonHint = "[" + IntToStr(Conn->ServerID) + "] " +
-					  	  Conn->ServerCaption + ": Файли вивантажені на сервер";
-  InfoIcon->ShowBalloonHint();
+  try
+	 {
+       InfoIcon->BalloonFlags = bfInfo;
+	   InfoIcon->BalloonHint = "[" + IntToStr(Conn->ID) + "] " +
+							   Conn->Caption + ": Файли вивантажені на сервер";
+	   InfoIcon->ShowBalloonHint();
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("exceptions.log",
+						   UsedAppLogDir,
+						   "ID: " + IntToStr(Connection->ID) + ", " +
+						   "Thread: " + IntToStr(int(Connection->ThreadID)) + ", " +
+						   "TAMThread::ShowInfoNewUpload: " + e.ToString());
+	 }
 }
 //---------------------------------------------------------------------------
 

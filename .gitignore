@@ -36,3 +36,7 @@
 /ConfigServer/Win32
 /ConfigServer/__history
 /ConfigServer/__recovery
+/Guardian/Win32
+/Guardian/__astcache
+/Guardian/__recovery
+/Guardian/__history

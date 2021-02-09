@@ -19,6 +19,8 @@ Copyright 2020-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 #pragma resource "*.dfm"
 TServerForm *ServerForm;
 
+extern String UsedAppLogDir; //вказуємо директорію для логування для функцій з MyFunc.h
+
 TRecpientItemCollection *AddrBook;
 TRecpientCollectionThread *AddrBookChecker;
 ClientConfigManager *ConfigManager;
@@ -32,6 +34,8 @@ extern TAddGroupForm *AddGroupForm;
 __fastcall TServerForm::TServerForm(TComponent* Owner)
 	: TForm(Owner)
 {
+  UsedAppLogDir = "AFAConfigServer\\Log";
+
   AppPath = Application->ExeName;
   int pos = AppPath.LastDelimiter("\\");
   AppPath.Delete(pos, AppPath.Length() - (pos - 1));
@@ -71,6 +75,10 @@ void __fastcall TServerForm::FormCreate(TObject *Sender)
 		 SaveToFile(DataDir + "\\hosts.grp", "");
 
 	   AddrBook = new TRecpientItemCollection(DataDir + "\\hosts.grp");
+
+	   if (!AddrBook->FindGroup("public"))
+		 AddrBook->Add(0, AddrList->Items->Add(AddrList->Selected, "public"), "public");
+
 	   AddrBook->CreateSortedTree(AddrList);
 
 	   AddrBookChecker = new TRecpientCollectionThread(true);
@@ -125,7 +133,6 @@ void __fastcall TServerForm::AddrListClick(TObject *Sender)
 {
   try
 	 {
-
 	   RecipientItem *itm = AddrBook->Find(AddrList->Selected);
 
 	   if (itm && !itm->ParentNodeID) //обрано групу
@@ -154,6 +161,11 @@ void __fastcall TServerForm::AddrListClick(TObject *Sender)
 				   ConfigList->Items->Add(links->Links[i]->FileName);
 			  }
 		   __finally{delete links;}
+
+		   ItemParams->Cells[1][1] = grp->Name;
+		   ItemParams->Cells[1][2] = itm->Name;
+		   ItemParams->Cells[1][3] = itm->Host;
+		   ItemParams->Cells[1][4] = itm->Port;
 		 }
 	   else
 		 throw new Exception("Невідомий ID");
@@ -476,7 +488,7 @@ void __fastcall TServerForm::ImportInAddrBookClick(TObject *Sender)
 
 			   AddrBook->Save();
 
-               AddrBook->CreateSortedTree(AddrList);
+			   AddrBook->CreateSortedTree(AddrList);
 			   grp = AddrBook->FindGroup("Несортоване");
 			   grp->Node->Expand(true);
 			 }
@@ -736,11 +748,14 @@ void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 	   try
 		  {
 			ms->Position = 0;
-  			msg = ms->ReadString(ms->Size);
+			msg = ms->ReadString(ms->Size);
+
+			if (msg == "")
+              throw new Exception("Відсутні дані");
 
 			StrToList(list, msg, "%");
 
-			String host = AContext->Connection->Socket->BoundIP;
+			String host = AContext->Binding->PeerIP;
 
 			if (list->Strings[0] == "#auth")
 			  {
@@ -759,26 +774,28 @@ void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 					grp = AddrBook->FindGroup(grp_id);
 				  }
 
-				RecipientItem *itm = AddrBook->FindRecipientInGroup(grp_id, station, host, port);
+				RecipientItem *itm = AddrBook->FindRecipientInGroup(grp->ID, station, host, port);
 
 				if (!itm)
 				  {
-					AddrBook->Add(grp->ID, grp->Node, station, host, port);
+					itm = AddrBook->FindItem(AddrBook->Add(grp->ID, grp->Node, station, host, port));
+					AddrBook->CreateSortedTree(AddrList);
 					AddrBookChecker->CollectionChanged = true;
 				  }
 				else if ((itm->Host != host) || (itm->Port != port))
 				  {
 					itm->Host = host;
 					itm->Port = port;
-                    AddrBookChecker->CollectionChanged = true;
-                  }
+					AddrBookChecker->CollectionChanged = true;
+				  }
 
-				AddrBook->CreateSortedTree(AddrList);
+                itm->Node->StateIndex = 3;
 
 //надсилаємо хосту перелік файлів
 				ms->Clear();
 				ms->WriteString(CreateClientFileList(index, station));
-				AContext->Connection->IOHandler->Write(ms, ms->Size);
+                ms->Position = 0;
+				AContext->Connection->IOHandler->Write(ms, ms->Size, true);
 			  }
 			else if (list->Strings[0] == "#request")
 			  {
@@ -787,7 +804,7 @@ void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 				try
 				   {
 					 fs->Position = 0;
-					 AContext->Connection->IOHandler->Write(fs, fs->Size);
+					 AContext->Connection->IOHandler->Write(fs, fs->Size, true);
 				   }
 				__finally {delete fs;}
 			  }
@@ -822,7 +839,7 @@ String __fastcall TServerForm::CreateClientFileList(const String &index, const S
 			  links.push_back(ConfigManager->Items->Links[i]);
           }
 
-	   res = "<Data type='filelist'>";
+	   res = "<Data type = 'filelist'>";
 
 	   for (int i = 0; i < links.size(); i++)
 		  {
@@ -839,14 +856,14 @@ String __fastcall TServerForm::CreateClientFileList(const String &index, const S
 
 			ver = GetVersionInString(file.c_str());
 
-			res += "<File size=’" + size +
-				   "’ ver=’" + ver +
-				   "’ change=’" + change +
-				   "’>" + file +
+			res += "<File size = '" + size +
+				   "' version = '" + ver +
+				   "' change = '" + change +
+				   "'>" + file +
 				   "</File>";
 		  }
 
-	   res = "</Data>";
+	   res += "</Data>";
 	 }
   catch (Exception &e)
 	 {
@@ -861,14 +878,14 @@ String __fastcall TServerForm::CreateClientFileList(const String &index, const S
 void __fastcall TServerForm::ListenerConnect(TIdContext *AContext)
 {
   //клієнт під'єднався
-  WriteLog("Підключився клієнт: " + AContext->Connection->Socket->BoundIP);
+  WriteLog("Підключився клієнт: " + AContext->Binding->PeerIP);
 }
 //---------------------------------------------------------------------------
 
 void __fastcall TServerForm::ListenerDisconnect(TIdContext *AContext)
 {
   //клієнт від'єднався
-  WriteLog("Відключився клієнт: " + AContext->Connection->Socket->BoundIP);
+  WriteLog("Відключився клієнт: " + AContext->Binding->PeerIP);
 }
 //---------------------------------------------------------------------------
 
@@ -984,9 +1001,9 @@ void __fastcall TServerForm::StatusCheckerTimer(TObject *Sender)
 					 status = AskToClient(itm->Host.c_str(), itm->Port.ToInt(), ms);
 
 					 if (status < 0)
-					   itm->Node->ImageIndex = 4;
+					   itm->Node->StateIndex = 4;
 					 else if (ms->ReadString(ms->Size) == "#ok")
-					   itm->Node->ImageIndex = 3;
+					   itm->Node->StateIndex = 3;
 				   }
 			   }
 		  }
@@ -1038,6 +1055,13 @@ void __fastcall TServerForm::PPCloseClick(TObject *Sender)
 void __fastcall TServerForm::TrayIconDblClick(TObject *Sender)
 {
   PPShowWindow->Click();
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TServerForm::RefreshLogClick(TObject *Sender)
+{
+  Log->Lines->LoadFromFile(LogDir + "\\" + LogFilter->Items->Strings[LogFilter->ItemIndex],
+						   TEncoding::UTF8);
 }
 //---------------------------------------------------------------------------
 

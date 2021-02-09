@@ -30,22 +30,22 @@ __published:	// IDE-managed Components
 	TLabeledEdit *CfgServerPort;
 	TLabel *LbStationID;
 	TLabel *Label1;
-	TLabel *Label2;
+	TLabel *MigrIndexVZ;
 	TLabel *Label3;
-	TLabel *Label4;
+	TLabel *MigrRemAdmPort;
 	TLabel *Label5;
-	TLabel *Label6;
+	TLabel *MigrAutoStart;
 	TLabel *Label7;
 	TLabel *Label8;
-	TLabel *Label9;
+	TLabel *MigrAutoStartForAll;
+	TCheckBox *ManageFirewall;
 	void __fastcall FormShow(TObject *Sender);
 	void __fastcall InitKindClick(TObject *Sender);
 	void __fastcall ApplyClick(TObject *Sender);
 	void __fastcall CancelClick(TObject *Sender);
 	void __fastcall EnableAutoStartClick(TObject *Sender);
+	void __fastcall OpenManagerCfgClick(TObject *Sender);
 private:	// User declarations
-	void __fastcall AddFirewallRule();
-	void __fastcall WriteSettings();
 public:		// User declarations
 	__fastcall TFirstStartForm(TComponent* Owner);
 };

@@ -2,16 +2,20 @@
 
 #pragma hdrstop
 
+#include "..\..\work-functions\MyFunc.h"
 #include "TConnectionManager.h"
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 
-int TConnectionManager::FDestroyConnections()
+void TConnectionManager::FDestroyConnections()
 {
   try
 	 {
-	   for (int i = 0; i < Count; i++)
-		  delete FConns[i];
+	   for (int i = 0; i < ConnectionCount; i++)
+		  {
+			Stop(FConns[i]);
+			delete FConns[i];
+		  }
 
 	   FConns.clear();
 	 }
@@ -25,12 +29,12 @@ int TConnectionManager::FDestroyConnections()
 TExchangeConnect *TConnectionManager::ReadConns(int ind)
 {
   if (ind < 0)
-	throw new Exception("TConnectionManager::Links: Out of bounds!");
+	throw new Exception("TConnectionManager::Connections: Out of bounds!");
   else if (ind < FConns.size())
 	return FConns[ind];
   else
 	{
-	  throw new Exception("TConnectionManager::Links: Out of bounds!");
+	  throw new Exception("TConnectionManager::Connections: Out of bounds!");
     }
 }
 //---------------------------------------------------------------------------
@@ -38,63 +42,63 @@ TExchangeConnect *TConnectionManager::ReadConns(int ind)
 void TConnectionManager::WriteConns(int ind, TExchangeConnect *conn)
 {
   if (ind < 0)
-	throw new Exception("TConnectionManager::Links: Out of bounds!");
+	throw new Exception("TConnectionManager::Connections: Out of bounds!");
   else if (ind < FConns.size())
 	FConns[ind] = conn;
   else
-	throw new Exception("TConnectionManager::Links: Out of bounds!");
+	throw new Exception("TConnectionManager::Connections: Out of bounds!");
 }
 //---------------------------------------------------------------------------
 
-TExchangeConnect *TConnectionManager::ReadThreads(int ind)
+TAMThread *TConnectionManager::ReadThreads(int ind)
 {
   if (ind < 0)
-	throw new Exception("TConnectionManager::Links: Out of bounds!");
-  else if (ind < FConns.size())
-	return FConns[ind];
+	throw new Exception("TConnectionManager::Threads: Out of bounds!");
+  else if (ind < FThreadList.size())
+	return FThreadList[ind];
   else
 	{
-	  throw new Exception("TConnectionManager::Links: Out of bounds!");
+	  throw new Exception("TConnectionManager::Threads: Out of bounds!");
     }
 }
 //---------------------------------------------------------------------------
 
-void TConnectionManager::WriteThreads(int ind, TExchangeConnect *conn)
+void TConnectionManager::WriteThreads(int ind, TAMThread *th)
 {
   if (ind < 0)
-	throw new Exception("TConnectionManager::Links: Out of bounds!");
-  else if (ind < FConns.size())
-	FConns[ind] = conn;
+	throw new Exception("TConnectionManager::Threads: Out of bounds!");
+  else if (ind < FThreadList.size())
+	FThreadList[ind] = th;
   else
-	throw new Exception("TConnectionManager::Links: Out of bounds!");
+	throw new Exception("TConnectionManager::Threads: Out of bounds!");
 }
 //---------------------------------------------------------------------------
 
-TExchangeConnect * TConnectionManager::Add(int ID, TTrayIcon *Icon, TThreadSafeLog *Log)
+TExchangeConnect * TConnectionManager::Add(TThreadSafeLog *Log)
 {
   TExchangeConnect *res;
 
   try
 	 {
-	   res = new TExchangeConnect(ID, Icon, Log);
+	   res = new TExchangeConnect(GenConnectionID(), Log);
 	   FConns.push_back(res);
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("ClientConfigLinks::Add: " + e.ToString());
+	   throw new Exception("TConnectionManager::Add: " + e.ToString());
 	 }
 
   return res;
 }
 //---------------------------------------------------------------------------
 
-TExchangeConnect * TConnectionManager::Add(String cfg_file, int ID, TTrayIcon *Icon, TThreadSafeLog *Log)
+TExchangeConnect * TConnectionManager::Add(String cfg_file, TThreadSafeLog *Log)
 {
   TExchangeConnect *res;
 
   try
 	 {
-	   res = new TExchangeConnect(cfg_file, ID, Icon, Log);
+	   res = new TExchangeConnect(cfg_file, GenConnectionID(), Log);
 	   FConns.push_back(res);
 	 }
   catch (Exception &e)
@@ -123,7 +127,7 @@ void TConnectionManager::Remove(int ind)
 {
   try
 	 {
-	   delete FCons[i];
+	   delete FConns[ind];
 	   FConns.erase(FConns.begin() + ind);
 	 }
   catch (Exception &e)
@@ -149,15 +153,31 @@ void TConnectionManager::Remove(const String &caption)
 }
 //---------------------------------------------------------------------------
 
+void TConnectionManager::Remove(TExchangeConnect *conn)
+{
+  try
+	 {
+	   int ind = IndexOf(conn);
+
+	   delete FConns[ind];
+	   FConns.erase(FConns.begin() + ind);
+	 }
+  catch (Exception &e)
+	 {
+	   throw new Exception("TConnectionManager::Remove: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
 int TConnectionManager::IndexOf(const String &caption)
 {
-  int res;
+  int res = -1;
 
   try
 	 {
-	   for (int i = 0; i < Count; i++)
+	   for (int i = 0; i < ConnectionCount; i++)
 		  {
-			if (FConns[i]->ConnectionConfig->Caption == caption)
+			if (FConns[i]->Config->Caption == caption)
 			  {
 				res = i;
 				break;
@@ -167,7 +187,7 @@ int TConnectionManager::IndexOf(const String &caption)
   catch (Exception &e)
 	 {
 	   res = -1;
-	   throw new Exception("ClientConfigLinks::IndexOf: " + e.ToString());
+	   throw new Exception("TConnectionManager::IndexOf: " + e.ToString());
 	 }
 
   return res;
@@ -176,13 +196,13 @@ int TConnectionManager::IndexOf(const String &caption)
 
 int TConnectionManager::IndexOf(const wchar_t *cfg_file)
 {
-  int res;
+  int res = -1;
 
   try
 	 {
-	   for (int i = 0; i < Count; i++)
+	   for (int i = 0; i < ConnectionCount; i++)
 		  {
-			if (FConns[i]->ServerCfgPath == String(cfg_file))
+			if (FConns[i]->ConfigPath == String(cfg_file))
 			  {
 				res = i;
 				break;
@@ -205,7 +225,7 @@ int TConnectionManager::IndexOf(TExchangeConnect *conn)
 
   try
 	 {
-	   for (int i = 0; i < Count; i++)
+	   for (int i = 0; i < ConnectionCount; i++)
 		  {
 			if (FConns[i] == conn)
 			  {
@@ -228,25 +248,71 @@ int TConnectionManager::GenConnectionID()
 {
   int id = 0;
 
-  for (int i = 0; i < Count; i++)
+  for (int i = 0; i < ConnectionCount; i++)
 	 {
-	   if (FConns[i]->ServerID > id)
-		 id = srv->ServerID;
+	   if (FConns[i]->ID > id)
+		 id = FConns[i]->ID;
 	 }
 
   return id + 1;
 }
 //---------------------------------------------------------------------------
 
-TAMThread* __fastcall TConnectionManager::FindConnectionThread(unsigned int thread_id)
+TAMThread* TConnectionManager::FindThread(unsigned int thread_id)
 {
   for (int i = 0; i < FThreadList.size(); i++)
 	 {
 	   if (FThreadList[i]->ThreadID == thread_id)
-		 return th;
+		 return FThreadList[i];
 	 }
 
   return NULL;
+}
+//---------------------------------------------------------------------------
+
+TAMThread* TConnectionManager::AddThread(TExchangeConnect *conn)
+{
+  TAMThread *res;
+
+  try
+	 {
+	   res = new TAMThread(true);
+	   res->Connection = conn;
+
+	   FThreadList.push_back(res);
+	 }
+  catch (Exception &e)
+	 {
+	   res = NULL;
+
+	   throw new Exception("TConnectionManager::AddThread: " + e.ToString());
+	 }
+
+  return res;
+}
+//---------------------------------------------------------------------------
+
+void TConnectionManager::DeleteThread(unsigned int id)
+{
+  for (int i = 0; i < FThreadList.size(); i++)
+	 {
+	   if (FThreadList[i]->ThreadID == id)
+		 {
+		   delete FThreadList[i];
+		   FThreadList.erase(FThreadList.begin() + i);
+
+		   return;
+		 }
+	 }
+}
+//---------------------------------------------------------------------------
+
+void TConnectionManager::DeleteThreads()
+{
+  for (int i = 0; i < FThreadList.size(); i++)
+	 delete FThreadList[i];
+
+  FThreadList.clear();
 }
 //---------------------------------------------------------------------------
 
@@ -256,24 +322,21 @@ void TConnectionManager::Run(TExchangeConnect *conn)
 	{
 	  if (!conn->Working())
 		{
-		  if (conn->ServerThreadID > 0)
+		  if (conn->ThreadID > 0)
 			Resume(conn);
 		  else if (conn->Initialized())
 			{
-			  TAMThread *conn_thread = new TAMThread(true);
+			  TAMThread *conn_thread = AddThread(conn);
 
-			  conn_thread->InfoIcon = TrayIcon1;
-			  conn_thread->Connection = server;
-			  conn->ServerThreadID = conn_thread->ThreadID;
-
-			  FThreadList.push_back(conn_thread);
-
+			  conn_thread->InfoIcon = InfoIcon;
+			  conn_thread->Connection = conn;
+			  conn->ThreadID = conn_thread->ThreadID;
 			  conn_thread->Resume();
 			  conn->Start();
 			}
 		  else
 			{
-			  throw new Exception("З'єднання з ID " + IntToStr(conn->ServerID) + " не ініціалізоване!");
+			  throw new Exception("З'єднання з ID " + IntToStr(conn->ID) + " не ініціалізоване!");
             }
 		}
 	}
@@ -291,10 +354,10 @@ void TConnectionManager::Resume(TExchangeConnect *conn)
 	  if (!conn->Working())
 		conn->Start();
 
-	  if (!FindConnectionThread(server->ServerThreadID))
+	  if (!FindThread(conn->ThreadID))
 		{
-		  throw new Exception("Зі з'єднанням " + IntToStr(conn->ServerID) + ":" +
-							  conn->ServerCaption +
+		  throw new Exception("Зі з'єднанням " + IntToStr(conn->ID) + ":" +
+							  conn->Caption +
 							  " не пов'язано жодного потоку!");
 		}
 	}
@@ -312,7 +375,7 @@ void TConnectionManager::Stop(TExchangeConnect *conn)
 	  if (conn->Working())
 		conn->Stop();
 
-	  TAMThread *th = FindConnectionThread(conn->ServerThreadID);
+	  TAMThread *th = FindThread(conn->ThreadID);
 
 	  if (th)
 		{
@@ -322,13 +385,13 @@ void TConnectionManager::Stop(TExchangeConnect *conn)
 			Sleep(100);
 
 		  th->Connection = NULL;
-		  DeleteServerThread(th->ThreadID);
-          server->ServerThreadID = 0;
+		  DeleteThread(th->ThreadID);
+		  conn->ThreadID = 0;
 		}
       else
 		{
-		  throw new Exception("Помилковий ID потоку " + conn->ServerCaption +
-							  ", поток: " + IntToStr((int)conn->ServerThreadID));
+		  throw new Exception("Помилковий ID потоку " + conn->Caption +
+							  ", поток: " + IntToStr((int)conn->ThreadID));
 		}
 	}
   else
@@ -338,38 +401,117 @@ void TConnectionManager::Stop(TExchangeConnect *conn)
 }
 //---------------------------------------------------------------------------
 
-TExchangeConnect* __fastcall TConnectionManager::Find(int id)
+void TConnectionManager::Run(int id)
 {
-  for (int i = 0; i < Count; i++)
+  TExchangeConnect *conn = Find(id);
+
+  if (conn)
+	{
+	  Run(conn);
+	}
+  else
+	{
+	  throw new Exception("Помилковий вказівник TExchangeConnect*");
+	}
+}
+//---------------------------------------------------------------------------
+
+void TConnectionManager::Resume(int id)
+{
+  TExchangeConnect *conn = Find(id);
+
+  if (conn)
+	{
+	  Resume(conn);
+	}
+  else
+	{
+	  throw new Exception("Помилковий вказівник TExchangeConnect*");
+	}
+}
+//---------------------------------------------------------------------------
+
+void TConnectionManager::Stop(int id)
+{
+  TExchangeConnect *conn = Find(id);
+
+  if (conn)
+	{
+	  Stop(conn);
+	}
+  else
+	{
+	  throw new Exception("Помилковий вказівник TExchangeConnect*");
+	}
+}
+//---------------------------------------------------------------------------
+
+void TConnectionManager::Run(const String &caption)
+{
+  TExchangeConnect *conn = Find(caption);
+
+  if (conn)
+	{
+	  Run(conn);
+	}
+  else
+	{
+	  throw new Exception("Помилковий вказівник TExchangeConnect*");
+	}
+}
+//---------------------------------------------------------------------------
+
+void TConnectionManager::Resume(const String &caption)
+{
+  TExchangeConnect *conn = Find(caption);
+
+  if (conn)
+	{
+	  Resume(conn);
+	}
+  else
+	{
+	  throw new Exception("Помилковий вказівник TExchangeConnect*");
+	}
+}
+//---------------------------------------------------------------------------
+
+void TConnectionManager::Stop(const String &caption)
+{
+  TExchangeConnect *conn = Find(caption);
+
+  if (conn)
+	{
+	  Stop(conn);
+	}
+  else
+	{
+	  throw new Exception("Помилковий вказівник TExchangeConnect*");
+	}
+}
+//---------------------------------------------------------------------------
+
+TExchangeConnect *TConnectionManager::Find(int id)
+{
+  for (int i = 0; i < ConnectionCount; i++)
 	 {
-	   if (FConn[i]->ServerID == id)
-		 return srv;
+	   if (FConns[i]->ID == id)
+		 return FConns[i];
 	 }
 
   return NULL;
 }
 //---------------------------------------------------------------------------
 
-void __fastcall TConnectionManager::DeleteThread(unsigned int id)
+TExchangeConnect *TConnectionManager::Find(const String &cfg_file)
 {
-  for (int i = 0; i < FThreadList.size(); i++)
+  for (int i = 0; i < ConnectionCount; i++)
 	 {
-	   if (FThreadList[ind]->ThreadID == id)
-		 {
-		   delete th;
-		   FThreadList.erase(FThreadList.begin() + ind);
-
-		   return;
-		 }
+	   if (FConns[i]->ConfigPath == cfg_file)
+		 return FConns[i];
 	 }
+
+  return NULL;
 }
 //---------------------------------------------------------------------------
 
-void __fastcall TMainForm::DeleteThreads()
-{
-  for (int i = 0; i < FThreadList.size(); i++)
-	 delete FThreadList[i];
-
-  FThreadList.clear();
-}
-//---------------------------------------------------------------------------

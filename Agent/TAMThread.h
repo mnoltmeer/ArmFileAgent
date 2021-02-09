@@ -1,5 +1,5 @@
 /*!
-Copyright 2019-2020 Maxim Noltmeer (m.noltmeer@gmail.com)
+Copyright 2019-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 */
 //---------------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ Copyright 2019-2020 Maxim Noltmeer (m.noltmeer@gmail.com)
 #define ES_SUCC_UL 2
 #define ES_SUCC_DL_UL 3
 #define ES_NO_EXCHANGE -1
-#define ES_ERROR_STOP -2
+//#define ES_ERROR_STOP -2
 
 class TAMThread : public TThread
 {
@@ -24,15 +24,6 @@ private:
 	TExchangeConnect *Conn;
 	TTrayIcon *Icon;
 	double passed, interval;
-
-	/*TExchangeConnect *GetConnection(){return Conn;}
-	void SetConnection(TExchangeConnect *ptr){Conn = ptr;}
-	TTrayIcon *GetIcon(){return Icon;}
-	void SetIcon(TTrayIcon *ptr){Icon = ptr;}
-	double GetPassedTime(){return passed;}
-	void SetPassedTime(double val){passed = val;}
-	double GetWaitingInterval(){return interval;}
-	void SetWaitingInterval(double val){interval = val;}*/
 
     void __fastcall ShowInfoStatus();
 	void __fastcall ShowInfoNewDownload();

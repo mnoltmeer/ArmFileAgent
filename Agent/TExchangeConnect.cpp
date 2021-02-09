@@ -8,12 +8,12 @@ Copyright 2019-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 #include "..\..\work-functions\MyFunc.h"
 #include "TExchangeConnect.h"
 
-TExchangeConnect::TExchangeConnect(int ID, TTrayIcon *Icon, TThreadSafeLog *Log)
+TExchangeConnect::TExchangeConnect(int ID, TThreadSafeLog *Log)
 {
   this->Log = Log;
-  this->ID = ID;
+  this->ID = FID;
   this->Running = false;
-  this->thID = 0;
+  this->FthID = 0;
 
   SuccessFiles = new TStringList();
 
@@ -30,16 +30,13 @@ TExchangeConnect::TExchangeConnect(int ID, TTrayIcon *Icon, TThreadSafeLog *Log)
 }
 //---------------------------------------------------------------------------
 
-TExchangeConnect::TExchangeConnect(String cfg_file,
-								   int ID,
-								   TTrayIcon *Icon,
-								   TThreadSafeLog *Log)
+TExchangeConnect::TExchangeConnect(String cfg_file, int ID, TThreadSafeLog *Log)
 {
   this->Log = Log;
-  this->ID = ID;
+  this->FID = ID;
   this->Running = false;
-  this->thID = 0;
-  CfgPath = cfg_file;
+  this->FthID = 0;
+  FCfgPath = cfg_file;
 
   SuccessFiles = new TStringList();
 
@@ -78,23 +75,23 @@ TExchangeConnect::~TExchangeConnect()
 
 void TExchangeConnect::SetFtpLoader()
 {
-  FtpLoader->Port = Config.Port;
+  FtpLoader->Port = FConfig.Port;
 
   if (FtpLoader->Port == 0)
 	FtpLoader->Port = 21;
 
-  FtpLoader->Host = Config.Host;
-  FtpLoader->Username = Config.User;
-  FtpLoader->Password = Config.Pwd;
+  FtpLoader->Host = FConfig.Host;
+  FtpLoader->Username = FConfig.User;
+  FtpLoader->Password = FConfig.Pwd;
   FtpLoader->Passive = true;
   FtpLoader->AutoLogin = true;
-  FtpLoader->TransferType = TIdFTPTransferType(Config.TransType);
+  FtpLoader->TransferType = TIdFTPTransferType(FConfig.TransType);
 }
 //---------------------------------------------------------------------------
 
 void TExchangeConnect::CheckConfig(String cfg_file)
 {
-  const int CfgPrmCnt = 31;
+  const int CfgPrmCnt = 30;
 
   const wchar_t *CfgParams[CfgPrmCnt] = {L"Caption",
 										 L"FtpHost",
@@ -121,7 +118,6 @@ void TExchangeConnect::CheckConfig(String cfg_file)
 										 L"StartAtTime",
 										 L"DownloadFromSubDirs",
 										 L"SaveWithSubDirs",
-										 L"TimeStart",
 										 L"BackUpKeepDays",
 										 L"RegExDL",
 										 L"RegExUL",
@@ -152,31 +148,31 @@ int TExchangeConnect::ReadConfig(String cfg_file)
 
   try
 	 {
-	   if (ReadParameter(cfg_file, "Caption", &Config.Caption, TT_TO_STR) != RP_OK)
+	   if (ReadParameter(cfg_file, "Caption", &FConfig.Caption, TT_TO_STR) != RP_OK)
 		 {
 		   WriteLog("Помилка створення параметру Caption: " + String(GetLastReadParamResult()));
 		   result = -1;
          }
 
-	   if (ReadParameter(cfg_file, "FtpHost", &Config.Host, TT_TO_STR) != RP_OK)
+	   if (ReadParameter(cfg_file, "FtpHost", &FConfig.Host, TT_TO_STR) != RP_OK)
 		 {
 		   WriteLog("Помилка створення параметру FtpHost: " + String(GetLastReadParamResult()));
 		   result = -1;
 		 }
 
-	   if (ReadParameter(cfg_file, "FtpPort", &Config.Port, TT_TO_INT) != RP_OK)
+	   if (ReadParameter(cfg_file, "FtpPort", &FConfig.Port, TT_TO_INT) != RP_OK)
 		 {
 		   WriteLog("Помилка створення параметру FtpPort: " + String(GetLastReadParamResult()));
 		   result = -1;
 		 }
 
-	   if (ReadParameter(cfg_file, "FtpUser", &Config.User, TT_TO_STR) != RP_OK)
+	   if (ReadParameter(cfg_file, "FtpUser", &FConfig.User, TT_TO_STR) != RP_OK)
 		 {
 		   WriteLog("Помилка створення параметру FtpUser: " + String(GetLastReadParamResult()));
 		   result = -1;
 		 }
 
-	   if (ReadParameter(cfg_file, "FtpPass", &Config.Pwd, TT_TO_STR) != RP_OK)
+	   if (ReadParameter(cfg_file, "FtpPass", &FConfig.Pwd, TT_TO_STR) != RP_OK)
 		 {
 		   WriteLog("Помилка створення параметру FtpPass: " + String(GetLastReadParamResult()));
 		   result = -1;
@@ -194,114 +190,144 @@ int TExchangeConnect::ReadConfig(String cfg_file)
 		   type = UpperCase(type);
 
 		   if (type == "ASCII")
-			 Config.TransType = ftASCII;
+			 FConfig.TransType = ftASCII;
 		   else if (type == "BINARY")
-			 Config.TransType = ftBinary;
+			 FConfig.TransType = ftBinary;
 		   else
-		 	 Config.TransType = ftBinary;
+		 	 FConfig.TransType = ftBinary;
          }
 
-	   if (ReadParameter(cfg_file, "LeaveRemoteFiles", &Config.LeaveRemoteFiles, TT_TO_BOOL) != RP_OK)
+	   if (ReadParameter(cfg_file, "LeaveRemoteFiles", &FConfig.LeaveRemoteFiles, TT_TO_BOOL) != RP_OK)
 		 {
 		   WriteLog("Помилка створення параметру LeaveRemoteFiles: " + String(GetLastReadParamResult()));
 		   result = -1;
 		 }
 
-	   if (ReadParameter(cfg_file, "LeaveLocalFiles", &Config.LeaveLocalFiles, TT_TO_BOOL) != RP_OK)
+	   if (ReadParameter(cfg_file, "LeaveLocalFiles", &FConfig.LeaveLocalFiles, TT_TO_BOOL) != RP_OK)
 		 {
 		   WriteLog("Помилка створення параметру LeaveLocalFiles: " + String(GetLastReadParamResult()));
 		   result = -1;
 		 }
 
-	   if (ReadParameter(cfg_file, "MonitoringInterval", &Config.MonitoringInterval, TT_TO_INT) != RP_OK)
+	   if (ReadParameter(cfg_file, "MonitoringInterval", &FConfig.MonitoringInterval, TT_TO_INT) != RP_OK)
 		 {
 		   WriteLog("Помилка створення параметру MonitoringInterval: " + String(GetLastReadParamResult()));
 		   result = -1;
 		 }
 	   else
 		 {
-		   Config.MonitoringInterval = Config.MonitoringInterval * 60000;
+		   FConfig.MonitoringInterval = FConfig.MonitoringInterval * 60000;
          }
 
-	   if (ReadParameter(cfg_file, "RunOnce", &Config.RunOnce, TT_TO_BOOL) != RP_OK)
+	   if (ReadParameter(cfg_file, "RunOnce", &FConfig.RunOnce, TT_TO_BOOL) != RP_OK)
 		 {
 		   WriteLog("Помилка створення параметру RunOnce: " + String(GetLastReadParamResult()));
 		   result = -1;
 		 }
 
-	   if (ReadParameter(cfg_file, "StartAtTime", &Config.StartAtTime, TT_TO_BOOL) != RP_OK)
+       String str;
+
+	   if (ReadParameter(cfg_file, "StartAtTime", &str, TT_TO_STR) != RP_OK)
 		 {
-		   WriteLog("Помилка створення параметру StartAtTime: " + String(GetLastReadParamResult()));
+		   WriteLog("Помилка створення параметру StartAtTime: " +
+					String(GetLastReadParamResult()));
 		   result = -1;
 		 }
+	   else if (str != "")
+		 {
+		   short h, m;
+		   TStringList *lst = new TStringList();
 
-	   if (ReadParameter(cfg_file, "DownloadFromSubDirs", &Config.SubDirsDl, TT_TO_BOOL) != RP_OK)
+		   try
+			  {
+				StrToList(lst, str, ":");
+
+				try
+				   {
+					 h = lst->Strings[0].ToInt();
+					 m = lst->Strings[1].ToInt();
+					 FConfig.StartAtTime = TTime(h, m, 0, 0);
+				   }
+				catch (Exception &e)
+				   {
+					 FConfig.StartAtTime = -1;
+					 WriteLog("Помилка створення параметру StartAtTime: " + e.ToString());
+				   }
+			  }
+		   __finally {delete lst;}
+		 }
+	   else
+		 {
+		   FConfig.StartAtTime = -1;
+		 }
+
+	   if (ReadParameter(cfg_file, "DownloadFromSubDirs", &FConfig.SubDirsDl, TT_TO_BOOL) != RP_OK)
 		 {
 		   WriteLog("Помилка створення параметру DownloadFromSubDirs: " + String(GetLastReadParamResult()));
 		   result = -1;
 		 }
 
-	   if (ReadParameter(cfg_file, "SaveWithSubDirs", &Config.SubDirsCrt, TT_TO_BOOL) != RP_OK)
+	   if (ReadParameter(cfg_file, "SaveWithSubDirs", &FConfig.SubDirsCrt, TT_TO_BOOL) != RP_OK)
 		 {
 		   WriteLog("Помилка створення параметру SaveWithSubDirs: " + String(GetLastReadParamResult()));
 		   result = -1;
 		 }
 
-	   if (ReadParameter(cfg_file, "BackUpKeepDays", &Config.BackUpKeepDays, TT_TO_INT) != RP_OK)
+	   if (ReadParameter(cfg_file, "BackUpKeepDays", &FConfig.BackUpKeepDays, TT_TO_INT) != RP_OK)
 		 {
 		   WriteLog("Помилка створення параметру BackUpKeepDays: " + String(GetLastReadParamResult()));
 		   result = -1;
 		 }
 
-	   if (ReadParameter(cfg_file, "EnableDownload", &Config.EnableDownload, TT_TO_BOOL) != RP_OK)
+	   if (ReadParameter(cfg_file, "EnableDownload", &FConfig.EnableDownload, TT_TO_BOOL) != RP_OK)
 		 {
 		   WriteLog("Помилка створення параметру EnableDownload: " + String(GetLastReadParamResult()));
 		   result = -1;
 		 }
-	   else if (Config.EnableDownload)
+	   else if (FConfig.EnableDownload)
 		 {
-		   if (ReadParameter(cfg_file, "RemDirDl", &Config.RemDirDl, TT_TO_STR) != RP_OK)
+		   if (ReadParameter(cfg_file, "RemDirDl", &FConfig.RemDirDl, TT_TO_STR) != RP_OK)
 			 {
 			   WriteLog("Помилка створення параметру RemDirDl: " +
 						String(GetLastReadParamResult()));
 			   result = -1;
 			 }
 
-		   if (ReadParameter(cfg_file, "LocDirDl", &Config.LocDirDl, TT_TO_STR) != RP_OK)
+		   if (ReadParameter(cfg_file, "LocDirDl", &FConfig.LocDirDl, TT_TO_STR) != RP_OK)
 			 {
 			   WriteLog("Помилка створення параметру LocDirDl: " +
 						String(GetLastReadParamResult()));
 			   result = -1;
 			 }
 
-		   if (ReadParameter(cfg_file, "BackUpDirDl", &Config.BackUpDirDl, TT_TO_STR) != RP_OK)
+		   if (ReadParameter(cfg_file, "BackUpDirDl", &FConfig.BackUpDirDl, TT_TO_STR) != RP_OK)
 			 {
 			   WriteLog("Помилка створення параметру BackUpDirDl: " +
 						String(GetLastReadParamResult()));
 			   result = -1;
 			 }
 
-		   if (ReadParameter(cfg_file, "DownloadFilesMask", &Config.DownloadFilesMask, TT_TO_STR) != RP_OK)
+		   if (ReadParameter(cfg_file, "DownloadFilesMask", &FConfig.DownloadFilesMask, TT_TO_STR) != RP_OK)
 			 {
 			   WriteLog("Помилка створення параметру DownloadFilesMask: " +
 						String(GetLastReadParamResult()));
 			   result = -1;
 			 }
 
-		   if (ReadParameter(cfg_file, "RegExDL", &Config.RegExDL, TT_TO_BOOL) != RP_OK)
+		   if (ReadParameter(cfg_file, "RegExDL", &FConfig.RegExDL, TT_TO_BOOL) != RP_OK)
 			 {
 			   WriteLog("Помилка створення параметру RegExDL: " + String(GetLastReadParamResult()));
 			   result = -1;
 			 }
 
-		   if (ReadParameter(cfg_file, "BackUpDl", &Config.BackUpDl, TT_TO_BOOL) != RP_OK)
+		   if (ReadParameter(cfg_file, "BackUpDl", &FConfig.BackUpDl, TT_TO_BOOL) != RP_OK)
 			 {
 			   WriteLog("Помилка створення параметру BackUpDl: " +
 						String(GetLastReadParamResult()));
 			   result = -1;
 			 }
 
-		   if (ReadParameter(cfg_file, "AppendModeDL", &Config.AppendModeDL, TT_TO_BOOL) != RP_OK)
+		   if (ReadParameter(cfg_file, "AppendModeDL", &FConfig.AppendModeDL, TT_TO_BOOL) != RP_OK)
 			 {
 			   WriteLog("Помилка створення параметру AppendModeDL: " +
 						String(GetLastReadParamResult()));
@@ -309,95 +335,61 @@ int TExchangeConnect::ReadConfig(String cfg_file)
 			 }
 		 }
 
-	   if (ReadParameter(cfg_file, "EnableUpload", &Config.EnableUpload, TT_TO_BOOL) != RP_OK)
+	   if (ReadParameter(cfg_file, "EnableUpload", &FConfig.EnableUpload, TT_TO_BOOL) != RP_OK)
 		 {
 		   WriteLog("Помилка створення параметру EnableUpload: " + String(GetLastReadParamResult()));
 		   result = -1;
 		 }
-	   else if (Config.EnableUpload)
+	   else if (FConfig.EnableUpload)
 		 {
-		   if (ReadParameter(cfg_file, "RemDirUl", &Config.RemDirUl, TT_TO_STR) != RP_OK)
+		   if (ReadParameter(cfg_file, "RemDirUl", &FConfig.RemDirUl, TT_TO_STR) != RP_OK)
 			 {
 			   WriteLog("Помилка створення параметру RemDirUl: " +
 						String(GetLastReadParamResult()));
 			   result = -1;
 			 }
 
-		   if (ReadParameter(cfg_file, "LocDirUl", &Config.LocDirUl, TT_TO_STR) != RP_OK)
+		   if (ReadParameter(cfg_file, "LocDirUl", &FConfig.LocDirUl, TT_TO_STR) != RP_OK)
 			 {
 			   WriteLog("Помилка створення параметру LocDirUl: " +
 						String(GetLastReadParamResult()));
 			   result = -1;
 			 }
 
-		   if (ReadParameter(cfg_file, "BackUpDirUl", &Config.BackUpDirUl, TT_TO_STR) != RP_OK)
+		   if (ReadParameter(cfg_file, "BackUpDirUl", &FConfig.BackUpDirUl, TT_TO_STR) != RP_OK)
 			 {
 			   WriteLog("Помилка створення параметру BackUpDirUl: " +
 						String(GetLastReadParamResult()));
 			   result = -1;
 			 }
 
-		   if (ReadParameter(cfg_file, "UploadFilesMask", &Config.UploadFilesMask, TT_TO_STR) != RP_OK)
+		   if (ReadParameter(cfg_file, "UploadFilesMask", &FConfig.UploadFilesMask, TT_TO_STR) != RP_OK)
 			 {
 			   WriteLog("Помилка створення параметру UploadFilesMask: " +
 						String(GetLastReadParamResult()));
 			   result = -1;
 			 }
 
-		   if (ReadParameter(cfg_file, "RegExUL", &Config.RegExUL, TT_TO_BOOL) != RP_OK)
+		   if (ReadParameter(cfg_file, "RegExUL", &FConfig.RegExUL, TT_TO_BOOL) != RP_OK)
 			 {
 			   WriteLog("Помилка створення параметру RegExUL: " + String(GetLastReadParamResult()));
 			   result = -1;
 			 }
 
-		   if (ReadParameter(cfg_file, "BackUpUl", &Config.BackUpUl, TT_TO_BOOL) != RP_OK)
+		   if (ReadParameter(cfg_file, "BackUpUl", &FConfig.BackUpUl, TT_TO_BOOL) != RP_OK)
 			 {
 			   WriteLog("Помилка створення параметру BackUpUl: " +
 						String(GetLastReadParamResult()));
 			   result = -1;
 			 }
 
-		   if (ReadParameter(cfg_file, "AppendModeUL", &Config.AppendModeUL, TT_TO_BOOL) != RP_OK)
+		   if (ReadParameter(cfg_file, "AppendModeUL", &FConfig.AppendModeUL, TT_TO_BOOL) != RP_OK)
 			 {
 			   WriteLog("Помилка створення параметру AppendModeUL: " +
 						String(GetLastReadParamResult()));
 			   result = -1;
 			 }
-         }
-
-	   if (Config.StartAtTime)
-		 {
-		   short h, m;
-		   TStringList *lst = new TStringList();
-
-		   try
-			  {
-				String str;
-
-				if (ReadParameter(cfg_file, "TimeStart", &str, TT_TO_STR) != RP_OK)
-				  {
-					WriteLog("Помилка створення параметру TimeStart: " +
-							 String(GetLastReadParamResult()));
-					result = -1;
-				  }
-				else
-				  {
-					StrToList(lst, str, ":");
-
-					try
-					   {
-						 h = lst->Strings[0].ToInt();
-						 m = lst->Strings[1].ToInt();
-						 Config.TimeStart = TTime(h, m, 0, 0);
-					   }
-                    catch (Exception &e)
-					   {
-						 WriteLog("Помилка створення параметру TimeStart: " + e.ToString());
-					   }
-				  }
-			  }
-			__finally {delete lst;}
-         }
+		 }
 	 }
   catch (Exception &e)
 	 {
@@ -415,30 +407,30 @@ int TExchangeConnect::CreateServerCfgDirs()
 {
   try
 	{
-	  if (Config.EnableDownload && !DirectoryExists(Config.LocDirDl))
-		if (!ForceDirectories(Config.LocDirDl))
+	  if (FConfig.EnableDownload && !DirectoryExists(FConfig.LocDirDl))
+		if (!ForceDirectories(FConfig.LocDirDl))
 		  {
-			WriteLog("Не вдалося створити директорію: " + Config.LocDirDl);
+			WriteLog("Не вдалося створити директорію: " + FConfig.LocDirDl);
 		  }
 
-	  if (Config.EnableUpload && !DirectoryExists(Config.LocDirUl))
-		if (!ForceDirectories(Config.LocDirUl))
+	  if (FConfig.EnableUpload && !DirectoryExists(FConfig.LocDirUl))
+		if (!ForceDirectories(FConfig.LocDirUl))
 		  {
-			WriteLog("Не вдалося створити директорію: " + Config.LocDirUl);
+			WriteLog("Не вдалося створити директорію: " + FConfig.LocDirUl);
 		  }
 
-	  if (Config.BackUpDl && (Config.BackUpDirDl != ""))
-		if (!DirectoryExists(Config.BackUpDirDl))
-		  if (!ForceDirectories(Config.BackUpDirDl))
+	  if (FConfig.BackUpDl && (FConfig.BackUpDirDl != ""))
+		if (!DirectoryExists(FConfig.BackUpDirDl))
+		  if (!ForceDirectories(FConfig.BackUpDirDl))
 			{
-			  WriteLog("Не вдалося створити директорію: " + Config.BackUpDirDl);
+			  WriteLog("Не вдалося створити директорію: " + FConfig.BackUpDirDl);
 			}
 
-	  if (Config.BackUpUl && (Config.BackUpDirUl != ""))
-		if (!DirectoryExists(Config.BackUpDirUl))
-		  if (!ForceDirectories(Config.BackUpDirUl))
+	  if (FConfig.BackUpUl && (FConfig.BackUpDirUl != ""))
+		if (!DirectoryExists(FConfig.BackUpDirUl))
+		  if (!ForceDirectories(FConfig.BackUpDirUl))
 			{
-			  WriteLog("Не вдалося створити директорію: " + Config.BackUpDirUl);
+			  WriteLog("Не вдалося створити директорію: " + FConfig.BackUpDirUl);
 			}
 	}
   catch(Exception &e)
@@ -454,20 +446,27 @@ int TExchangeConnect::CreateServerCfgDirs()
 
 void TExchangeConnect::Initialize()
 {
-  if (ReadConfig(CfgPath) == 0)
+  try
 	{
-	  ParsingParamsForVars();
-
-	  if (CreateServerCfgDirs() == 0)
+	  if (ReadConfig(FCfgPath) == 0)
 		{
-          SetFtpLoader();
-		  Init = true;
-        }
+		  ParsingParamsForVars();
+
+		  if (CreateServerCfgDirs() == 0)
+			{
+			  SetFtpLoader();
+			  Init = true;
+			}
+		  else
+			Init = false;
+		}
 	  else
-        Init = false;
+		Init = false;
 	}
-  else
-	Init = false;
+  catch(Exception &e)
+	{
+	  Init = false;
+	}
 }
 //---------------------------------------------------------------------------
 
@@ -518,7 +517,7 @@ int TExchangeConnect::Exchange()
   int try_cnt = 0, result = 0;
   bool dl_res = false, ul_res = false;
 
-  if (Config.BackUpDl || Config.BackUpUl)
+  if (FConfig.BackUpDl || FConfig.BackUpUl)
   	DeleteOldBackUpDirs();
 
   if (!ConnectToFTP())
@@ -526,10 +525,10 @@ int TExchangeConnect::Exchange()
 	  Status = "Сервер недоступний";
 	  WriteLog(Status);
 
-	  return -2;
+	  return -1;
 	}
 
-  if (Config.EnableDownload)
+  if (FConfig.EnableDownload)
 	{
 	  TStringList *dl_dirs = new TStringList();
 
@@ -540,12 +539,12 @@ int TExchangeConnect::Exchange()
 				SuccessFiles->Clear();
 				ExchageExitCode dl;
 
-				if (Config.RemDirDl == "")
+				if (FConfig.RemDirDl == "")
 				  {
 					dl = DownLoad("",
-								  Config.DownloadFilesMask,
-								  Config.LocDirDl,
-								  Config.BackUpDirDl);
+								  FConfig.DownloadFilesMask,
+								  FConfig.LocDirDl,
+								  FConfig.BackUpDirDl);
 
 					if ((dl == EE_NO_FILES) || (dl == EE_ERROR))
 					  dl_res = false;
@@ -554,12 +553,12 @@ int TExchangeConnect::Exchange()
 					else
 					  dl_res = true;
 
-                    if (!Config.LeaveRemoteFiles)
+                    if (!FConfig.LeaveRemoteFiles)
 					  DeleteFilesFromServer(SuccessFiles);
 				  }
 				else
 				  {
-                    StrToList(dl_dirs, Config.RemDirDl, ";");
+					StrToList(dl_dirs, FConfig.RemDirDl, ";");
 
 					for (int i = 0; i < dl_dirs->Count; i++)
 					   {
@@ -568,9 +567,9 @@ int TExchangeConnect::Exchange()
 						 FtpLoader->ChangeDir(dl_dirs->Strings[i]);
 
 						 dl = DownLoad(dl_dirs->Strings[i],
-									   Config.DownloadFilesMask,
-									   Config.LocDirDl,
-									   Config.BackUpDirDl);
+									   FConfig.DownloadFilesMask,
+									   FConfig.LocDirDl,
+									   FConfig.BackUpDirDl);
 
 						 if ((dl == EE_NO_FILES) || (dl == EE_ERROR))
 						   dl_res = false;
@@ -582,7 +581,7 @@ int TExchangeConnect::Exchange()
 						 ReturnToRoot(lc);
 					   }
 
-					if (!Config.LeaveRemoteFiles)
+					if (!FConfig.LeaveRemoteFiles)
 					  DeleteFilesFromServer(SuccessFiles);
 				  }
 			  }
@@ -595,7 +594,7 @@ int TExchangeConnect::Exchange()
 	  __finally {delete dl_dirs;}
 	}
 
-  if (Config.EnableUpload)
+  if (FConfig.EnableUpload)
 	{
 	  TStringList *ul_dirs = new TStringList();
 
@@ -606,12 +605,12 @@ int TExchangeConnect::Exchange()
                 SuccessFiles->Clear();
 				ExchageExitCode ul;
 
-				if (Config.RemDirUl == "")
+				if (FConfig.RemDirUl == "")
 				  {
-					ul = UpLoad(Config.LocDirUl,
-								Config.UploadFilesMask,
+					ul = UpLoad(FConfig.LocDirUl,
+								FConfig.UploadFilesMask,
 								"",
-								Config.BackUpDirUl);
+								FConfig.BackUpDirUl);
 
 					if ((ul == EE_NO_FILES) || (ul == EE_ERROR))
 					  ul_res = false;
@@ -622,7 +621,7 @@ int TExchangeConnect::Exchange()
 				  }
 				else
 				  {
-					StrToList(ul_dirs, Config.RemDirUl, ";");
+					StrToList(ul_dirs, FConfig.RemDirUl, ";");
 
 					for (int i = 0; i < ul_dirs->Count; i++)
 					   {
@@ -630,10 +629,10 @@ int TExchangeConnect::Exchange()
 
 						 FtpLoader->ChangeDir(ul_dirs->Strings[i]);
 
-						 ul = UpLoad(Config.LocDirUl,
-									 Config.UploadFilesMask,
+						 ul = UpLoad(FConfig.LocDirUl,
+									 FConfig.UploadFilesMask,
 									 ul_dirs->Strings[i],
-									 Config.BackUpDirUl);
+									 FConfig.BackUpDirUl);
 
 						 if ((ul == EE_NO_FILES) || (ul == EE_ERROR))
 						   ul_res = false;
@@ -646,7 +645,7 @@ int TExchangeConnect::Exchange()
 					   }
 				  }
 
-                if (!Config.LeaveLocalFiles)
+                if (!FConfig.LeaveLocalFiles)
 				  DeleteFiles(SuccessFiles);
 			  }
 		   catch (Exception &e)
@@ -666,18 +665,17 @@ int TExchangeConnect::Exchange()
   else if (!dl_res || !ul_res)
 	result = -1;
 
-
   if (FtpLoader->Connected())
 	{
 	  try
 		 {
 		   FtpLoader->Disconnect();
-		   WriteLog("Відключення від серверу: " + Config.Host + ":" + Config.Port);
+		   WriteLog("Відключення від серверу: " + FConfig.Host + ":" + FConfig.Port);
 		 }
 	  catch (Exception &e)
 		 {
 		   WriteLog("Відключення від серверу: " + e.ToString());
-		   result = -2;
+		   result = -1;
 		 }
 	}
 
@@ -744,7 +742,7 @@ int TExchangeConnect::BackUpFiles(TStringList *files, String destin)
   bckp_dir = destin + "\\" +
 			 dir_at_date + "\\" +
              IntToStr(this->ID) + "_" +
-			 Config.Caption + "\\" +
+			 FConfig.Caption + "\\" +
 			 dir_at_time;
 
   if (!DirectoryExists(bckp_dir))
@@ -835,7 +833,7 @@ int TExchangeConnect::LoadFilesFromServer(String source,
 
   try
 	 {
-	   if (Config.RegExDL)
+	   if (FConfig.RegExDL)
 		 GetFTPFileListRegEx(files, mask);
 	   else
 		 GetFTPFileList(files, mask);
@@ -844,8 +842,7 @@ int TExchangeConnect::LoadFilesFromServer(String source,
 	 {
 	   WriteLog("Помилка читання переліку файлів, " + source + "/" + mask + " :" + e.ToString());
 	   result = 0;
-     }
-
+	 }
 
   TStringList *ok_files = new TStringList(); //перелік успішно завантажених файлів
 
@@ -876,7 +873,7 @@ int TExchangeConnect::LoadFilesFromServer(String source,
                           downloaded = true;
 					  }
 				  }
-				else if (Config.AppendModeDL)
+				else if (FConfig.AppendModeDL)
 				  {
 					if (!FileExists(destin + "\\" + src_name))
 					  {
@@ -917,7 +914,7 @@ int TExchangeConnect::LoadFilesFromServer(String source,
              result = 2;
 		 }
 
-	   if (Config.BackUpDl && (backup != ""))
+	   if (FConfig.BackUpDl && (backup != ""))
 		 BackUpFiles(ok_files, backup);
 	 }
    __finally {delete files; delete ok_files;}
@@ -952,7 +949,7 @@ int TExchangeConnect::LoadFilesFromServerSubDirs(String source,
 		  {
 			FtpLoader->ChangeDir(DirList->Strings[i]);
 
-			if (Config.SubDirsCrt)
+			if (FConfig.SubDirsCrt)
 			  {
 				if (!DirectoryExists(destin + "\\" + DirList->Strings[i]))
 				  CreateDirectory(String(destin + "\\" + DirList->Strings[i]).c_str(), NULL);
@@ -1082,7 +1079,7 @@ int TExchangeConnect::SendFilesToServer(String source,
 
   try
 	 {
-	   if (Config.RegExUL)
+	   if (FConfig.RegExUL)
 		 GetFileListRegEx(files, source, mask, false, true);
 	   else
 		 GetFileList(files, source, mask, false, true);
@@ -1113,7 +1110,7 @@ int TExchangeConnect::SendFilesToServer(String source,
 			  {
 				WriteLog("Заблоковано файл " + files->Strings[i] + " Вивантаження неможливе");
 			  }
-			else if (Config.AppendModeUL)
+			else if (FConfig.AppendModeUL)
 			  {
 				if (!IsFtpFileExist(destin, file_name))
 				  {
@@ -1156,7 +1153,7 @@ int TExchangeConnect::SendFilesToServer(String source,
 		result = 2;
 	}
 
-  if (Config.BackUpUl && (backup != ""))
+  if (FConfig.BackUpUl && (backup != ""))
 	BackUpFiles(ok_files, backup);
 
   delete files;
@@ -1186,7 +1183,7 @@ int TExchangeConnect::SendFilesToServerSubDirs(String source,
 
 	   for (int i = 0; i < DirList->Count; i++)
 		  {
-			if (Config.SubDirsCrt)
+			if (FConfig.SubDirsCrt)
 			  {
                 if (destin == "")
 				  remote_dir = DirList->Strings[i];
@@ -1621,16 +1618,16 @@ ExchageExitCode TExchangeConnect::DownLoad(String source,
 
   for (int i = 0; i < d_mask_lst->Count; i++)
 	 {
-	   if (Config.SubDirsDl)
+	   if (FConfig.SubDirsDl)
 		 {
-		   if (Config.RegExDL)
+		   if (FConfig.RegExDL)
 			 fcnt = GetFTPFileCountWithSubDirsRegEx(source, d_mask_lst->Strings[i]);
 		   else
 			 fcnt = GetFTPFileCountWithSubDirs(source, d_mask_lst->Strings[i]);
 		 }
 	   else
 		 {
-		   if (Config.RegExDL)
+		   if (FConfig.RegExDL)
 			 fcnt = GetFTPFileCountRegEx(source, d_mask_lst->Strings[i]);
 		   else
 			 fcnt = GetFTPFileCount(source, d_mask_lst->Strings[i]);
@@ -1640,7 +1637,7 @@ ExchageExitCode TExchangeConnect::DownLoad(String source,
 		 {
 		   int res;
 
-		   if (Config.SubDirsDl)
+		   if (FConfig.SubDirsDl)
 			 {
 			   res = LoadFilesFromServerSubDirs(source, d_mask_lst->Strings[i], destin, backup);
 
@@ -1716,11 +1713,11 @@ ExchageExitCode TExchangeConnect::UpLoad(String source,
 
   for (int i = 0; i < u_mask_lst->Count; i++)
 	 {
-	   if (Config.SubDirsDl)
+	   if (FConfig.SubDirsDl)
 		 {
 		   try
 			  {
-				if (Config.RegExUL)
+				if (FConfig.RegExUL)
 				  cnt = GetFileCountSubDirsRegEx(source, u_mask_lst->Strings[i]);
 				else
                   cnt = GetFileCountSubDirs(source, u_mask_lst->Strings[i]);
@@ -1736,7 +1733,7 @@ ExchageExitCode TExchangeConnect::UpLoad(String source,
 		 {
            try
 			  {
-				if (Config.RegExUL)
+				if (FConfig.RegExUL)
 				  cnt = GetFileCountRegEx(source, u_mask_lst->Strings[i]);
 				else
 				  cnt = GetFileCount(source, u_mask_lst->Strings[i]);
@@ -1753,7 +1750,7 @@ ExchageExitCode TExchangeConnect::UpLoad(String source,
 		 {
 		   int res;
 
-		   if (Config.SubDirsDl)
+		   if (FConfig.SubDirsDl)
 			 {
 			   if (SendFilesToServerSubDirs(source, u_mask_lst->Strings[i], destin, backup) > 0)
 				 {
@@ -1814,7 +1811,7 @@ ExchageExitCode TExchangeConnect::UpLoad(String source,
 
 void TExchangeConnect::WriteLog(String text)
 {
-  text = "{id: " + IntToStr(this->ID) + "} " + this->ServerCaption + ": " + text;
+  text = "{id: " + IntToStr(this->ID) + "} " + this->Caption + ": " + text;
 
   Log->Add(text);
 }
@@ -1857,18 +1854,18 @@ void TExchangeConnect::ParsingParamsForVars()
   prm.Val = DataPath;
   vars.push_back(prm);
 
-  Config.Caption = ParsingVariables(Config.Caption, &vars);
-  Config.Host = ParsingVariables(Config.Host, &vars);
-  Config.User = ParsingVariables(Config.User, &vars);
-  Config.Pwd = ParsingVariables(Config.Pwd, &vars);
-  Config.RemDirDl = ParsingVariables(Config.RemDirDl, &vars);
-  Config.LocDirDl = ParsingVariables(Config.LocDirDl, &vars);
-  Config.BackUpDirDl = ParsingVariables(Config.BackUpDirDl, &vars);
-  Config.DownloadFilesMask = ParsingVariables(Config.DownloadFilesMask, &vars);
-  Config.RemDirUl = ParsingVariables(Config.RemDirUl, &vars);
-  Config.LocDirUl = ParsingVariables(Config.LocDirUl, &vars);
-  Config.BackUpDirUl = ParsingVariables(Config.BackUpDirUl, &vars);
-  Config.UploadFilesMask = ParsingVariables(Config.UploadFilesMask, &vars);
+  FConfig.Caption = ParsingVariables(FConfig.Caption, &vars);
+  FConfig.Host = ParsingVariables(FConfig.Host, &vars);
+  FConfig.User = ParsingVariables(FConfig.User, &vars);
+  FConfig.Pwd = ParsingVariables(FConfig.Pwd, &vars);
+  FConfig.RemDirDl = ParsingVariables(FConfig.RemDirDl, &vars);
+  FConfig.LocDirDl = ParsingVariables(FConfig.LocDirDl, &vars);
+  FConfig.BackUpDirDl = ParsingVariables(FConfig.BackUpDirDl, &vars);
+  FConfig.DownloadFilesMask = ParsingVariables(FConfig.DownloadFilesMask, &vars);
+  FConfig.RemDirUl = ParsingVariables(FConfig.RemDirUl, &vars);
+  FConfig.LocDirUl = ParsingVariables(FConfig.LocDirUl, &vars);
+  FConfig.BackUpDirUl = ParsingVariables(FConfig.BackUpDirUl, &vars);
+  FConfig.UploadFilesMask = ParsingVariables(FConfig.UploadFilesMask, &vars);
 }
 //---------------------------------------------------------------------------
 
@@ -1879,15 +1876,15 @@ void TExchangeConnect::DeleteOldBackUpDirs()
 
   try
 	 {
-	   if (DirectoryExists(Config.BackUpDirDl))
+	   if (DirectoryExists(FConfig.BackUpDirDl))
 		 {
-		   GetDirList(dir_list, Config.BackUpDirDl, WITHOUT_FULL_PATH);
+		   GetDirList(dir_list, FConfig.BackUpDirDl, WITHOUT_FULL_PATH);
 
 		   for (int i = 0; i < dir_list->Count; i++)
 			  {
 				TDate dir_date = TDate(dir_list->Strings[i]);
 
-				if (dir_date < (Date().CurrentDate() - Config.BackUpKeepDays))
+				if (dir_date < (Date().CurrentDate() - FConfig.BackUpKeepDays))
 				  del_list->Add(dir_list->Strings[i]);
 			  }
          }
@@ -1896,15 +1893,15 @@ void TExchangeConnect::DeleteOldBackUpDirs()
 
 	   for (int i = 0; i < del_list->Count; i++)
 		  {
-			DeleteAllFromDir(Config.BackUpDirDl + "\\" + del_list->Strings[i]);
-			RemoveDir(Config.BackUpDirDl + "\\" + del_list->Strings[i]);
+			DeleteAllFromDir(FConfig.BackUpDirDl + "\\" + del_list->Strings[i]);
+			RemoveDir(FConfig.BackUpDirDl + "\\" + del_list->Strings[i]);
 		  }
 
        del_list->Clear();
 
-	   if (DirectoryExists(Config.BackUpDirUl))
+	   if (DirectoryExists(FConfig.BackUpDirUl))
 		 {
-		   GetDirList(dir_list, Config.BackUpDirUl, WITHOUT_FULL_PATH);
+		   GetDirList(dir_list, FConfig.BackUpDirUl, WITHOUT_FULL_PATH);
 
 		   TDate dir_date;
 
@@ -1914,7 +1911,7 @@ void TExchangeConnect::DeleteOldBackUpDirs()
 				   {
 					 dir_date = TDate(dir_list->Strings[i]);
 
-                     if (dir_date < (Date().CurrentDate() - Config.BackUpKeepDays))
+                     if (dir_date < (Date().CurrentDate() - FConfig.BackUpKeepDays))
 					   del_list->Add(dir_list->Strings[i]);
 				   }
 				catch (Exception &e)
@@ -1926,8 +1923,8 @@ void TExchangeConnect::DeleteOldBackUpDirs()
 
        for (int i = 0; i < del_list->Count; i++)
 		  {
-			DeleteAllFromDir(Config.BackUpDirUl + "\\" + del_list->Strings[i]);
-			RemoveDir(Config.BackUpDirUl + "\\" + del_list->Strings[i]);
+			DeleteAllFromDir(FConfig.BackUpDirUl + "\\" + del_list->Strings[i]);
+			RemoveDir(FConfig.BackUpDirUl + "\\" + del_list->Strings[i]);
 		  }
 	 }
   __finally {delete dir_list; delete del_list;}

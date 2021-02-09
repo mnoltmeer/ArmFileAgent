@@ -423,6 +423,8 @@ void TRecpientItemCollection::CreateSortedTree(TTreeView *view)
 		 {
 		   recp_items[i].Node = view->Items->Add(NULL, recp_items[i].Name);
 
+		   recp_items[i].Node->ImageIndex = -1;
+
 		   itms.clear();
 		   SelectRecipientsInGroup(&itms, recp_items[i].ID);
 		   std::sort(itms.begin(), itms.end(), ItemComparer);

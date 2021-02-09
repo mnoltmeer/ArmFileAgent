@@ -71,6 +71,8 @@ __published:	// IDE-managed Components
 	TTimer *StatusChecker;
 	TListBox *ConfigList;
 	TLabel *LbVersion;
+	TBitBtn *RefreshLog;
+	TLabel *Label2;
 	void __fastcall FormClose(TObject *Sender, TCloseAction &Action);
 	void __fastcall AddrListClick(TObject *Sender);
 	void __fastcall FormShow(TObject *Sender);
@@ -94,6 +96,7 @@ __published:	// IDE-managed Components
 	void __fastcall LogFilterDropDown(TObject *Sender);
 	void __fastcall TrayIconDblClick(TObject *Sender);
 	void __fastcall FormCreate(TObject *Sender);
+	void __fastcall RefreshLogClick(TObject *Sender);
 
 private:	// User declarations
 	int __fastcall ReadTmpCfg(String cfg);

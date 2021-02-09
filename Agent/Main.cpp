@@ -1,5 +1,5 @@
 /*!
-Copyright 2021 Maxim Noltmeer (m.noltmeer@gmail.com)
+Copyright 2020-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 */
 //---------------------------------------------------------------------------
 
@@ -8,7 +8,8 @@ Copyright 2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 
 #include "..\..\work-functions\MyFunc.h"
 #include "..\..\work-functions\ThreadSafeLog.h"
-#include "TExchangeConnect.h"
+
+#include "TConfigLoaderThread.h"
 #include "TConnectionManager.h"
 #include "FirstStart.h"
 #include "Main.h"
@@ -17,19 +18,20 @@ Copyright 2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 #pragma resource "*.dfm"
 TMainForm *MainForm;
 
+extern String UsedAppLogDir; //вказуємо директорію для логування для функцій з MyFunc.h
+
 String StationID, IndexVZ, MailFrom, MailTo, ConfigServerHost,
 	   MailSubjectErr, MailSubjectOK, MailCodePage,
-	   SmtpHost, LogName, DataPath, ConnPath, LogPath,
-	   ModulesPath, AppVersion, ControlScript;
+	   SmtpHost, LogName, DataPath, LogPath, AppVersion;
 
-int SmtpPort, RemAdmPort, ConfigServerPort, ScriptInterval;
+int SmtpPort, RemAdmPort, ConfigServerPort;
 bool SendReportToMail, ScriptLog;
-
-bool Initialised; //флаг активності інстансу, стає істиною після вдалого виконання InitInstance()
 
 TThreadSafeLog *Log;
 
 TConnectionManager *ConnManager;
+
+TConfigLoaderThread *ConfigLoader;
 
 HINSTANCE dllhandle;
 
@@ -38,37 +40,95 @@ FREEELIINTERFACE FreeELI;
 
 ELI_INTERFACE *eIface;
 
-TAMEliThread *EliThread;
+String AppPath;
+
+TDate DateStart;
+
+const int MainPrmCnt = 16;
+
+const wchar_t *MainParams[MainPrmCnt] = {L"StationID",
+										 L"IndexVZ",
+										 L"MailFrom",
+										 L"MailTo",
+										 L"MailCodePage",
+										 L"SmtpHost",
+										 L"SmtpPort",
+										 L"RemAdmPort",
+										 L"SendReportToMail",
+										 L"EnableAutoStart",
+										 L"MailSubjectErr",
+										 L"MailSubjectOK",
+										 L"ControlScriptName",
+										 L"ScriptLog",
+										 L"ScriptInterval",
+										 L"AutoStartForAllUsers"};
 //---------------------------------------------------------------------------
 
 __fastcall TMainForm::TMainForm(TComponent* Owner)
 	: TForm(Owner)
 {
-  AppPath = Application->ExeName;
-  int pos = AppPath.LastDelimiter("\\");
-  AppPath.Delete(pos, AppPath.Length() - (pos - 1));
+  UsedAppLogDir = "AFAgent\\Log";
 
+  AppPath = GetDirPathFromFilePath(Application->ExeName);
   DataPath = GetEnvironmentVariable("USERPROFILE") + "\\Documents\\AFAgent";
-  ModulesPath = DataPath + "\\Modules";
-  ConnPath = DataPath + "\\Connections";
   LogPath = DataPath + "\\Log";
 
   if (!DirectoryExists(DataPath))
 	CreateDir(DataPath);
 
-  if (!DirectoryExists(ModulesPath))
-	CreateDir(ModulesPath);
-
-  if (!DirectoryExists(ConnPath))
-	CreateDir(ConnPath);
-
   if (!DirectoryExists(LogPath))
 	CreateDir(LogPath);
 
-  ThreadList = new TList();
-  MenuItemList = new TList();
-  Log = new TThreadSafeLog();
-  ConnManager = new TConnectionManager;
+  AppVersion = GetVersionInString(Application->ExeName.c_str());
+  ModuleVersion->Caption = AppVersion;
+  TrayIcon->Hint = Caption;
+
+  DateStart = Date().CurrentDate();
+  LogName = DateToStr(Date()) + ".log";
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TMainForm::FormCreate(TObject *Sender)
+{
+  try
+	 {
+       WindowState = wsMinimized;
+	   StartApplication();
+	 }
+  catch (Exception &e)
+	 {
+	   Log->Add("Помилка під час запуску");
+
+       Log->Add("Ініціалізація: " + e.ToString());
+
+	   Log->SaveToFile(LogPath + "\\" + LogName);
+
+	   if (SendReportToMail)
+	     MainForm->SendLog(MailTo, MailSubjectErr, MailFrom, Log->GetText());
+	 }
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TMainForm::FormDestroy(TObject *Sender)
+{
+  try
+	 {
+	   StopApplication();
+	 }
+  catch (Exception &e)
+	 {
+	   Log->Add(e.ToString());
+	 }
+
+//відписуємось від розсилки повідомлень WM_WTSSESSION_CHANGE
+  WTSUnRegisterSessionNotification(this->Handle);
+
+  AURAServer->Active = false;
+  SaveLogTimer->Enabled = false;
+
+  Log->SaveToFile(LogPath + "\\" + LogName);
+
+  delete Log;
 }
 //---------------------------------------------------------------------------
 
@@ -77,9 +137,14 @@ void __fastcall TMainForm::FirstStartInitialisation(int type)
   try
 	 {
 	   if (type == INIT_DIALOG)
-		 FirstStartForm->Show();
-	   else if (type == INIT_MANUAL)
 		 {
+		   Log->Add("Первинна ініціалізація: діалогове вікно");
+		   Application->CreateForm(__classid(TFirstStartForm), &FirstStartForm);
+		 }
+	   else if (type == INIT_CMDLINE)
+		 {
+		   Log->Add("Первинна ініціалізація: командний рядок");
+
 		   int pos;
 		   StationID = GetPCName();
 
@@ -115,6 +180,13 @@ void __fastcall TMainForm::FirstStartInitialisation(int type)
 			   else
 				 RemoveAppAutoStart("ArmFileAgent", FOR_CURRENT_USER);
 			 }
+
+		   WriteSettings();
+
+		   if (ParamStr(6) == "-firewall-add")
+			 AddFirewallRule();
+		   else if (ParamStr(6) == "-firewall-rem")
+		 	 RemoveFirewallRule();
          }
 	 }
   catch (Exception &e)
@@ -128,6 +200,9 @@ void __fastcall TMainForm::Migration()
 {
   try
 	 {
+       String cfg = ParamStr(3) + "\\main.cfg";
+	   Log->Add("Розпочато процес міграції з файлу " + cfg);
+
 	   int pos;
 	   StationID = GetPCName();
 	   ConfigServerHost = ParamStr(4);
@@ -139,11 +214,7 @@ void __fastcall TMainForm::Migration()
 	   port.Delete(1, pos);
 	   ConfigServerPort = port.ToInt();
 
-	   String cfg = ParamStr(3);
-
-	   Log->Add("Розпочато процес міграції з файлу " + cfg);
-
-       int rp;
+	   int rp;
 
 	   rp = ReadParameter(cfg, "IndexVZ", &IndexVZ, TT_TO_STR);
 
@@ -186,12 +257,59 @@ void __fastcall TMainForm::Migration()
 		   if (autorun_all)
 			 RemoveAppAutoStart("ArmFileAgent", FOR_ALL_USERS);
 		   else
-		     RemoveAppAutoStart("ArmFileAgent", FOR_CURRENT_USER);
+			 RemoveAppAutoStart("ArmFileAgent", FOR_CURRENT_USER);
 		 }
+
+	   WriteSettings();
+
+	   if (ParamStr(6) == "-firewall-add")
+		 AddFirewallRule();
+	   else if (ParamStr(6) == "-firewall-rem")
+		 RemoveFirewallRule();
+
+	   Log->Add("Реєстраційні дані Агента додані у систему");
+
+       ShutdownProcessByExeName("ArmMngr.exe");
+
+	   if (CheckAppAutoStart("ArmFileManager", FOR_ALL_USERS))
+		 RemoveAppAutoStart("ArmFileManager", FOR_ALL_USERS);
+	   else if (CheckAppAutoStart("ArmFileManager", FOR_CURRENT_USER))
+		 RemoveAppAutoStart("ArmFileManager", FOR_CURRENT_USER);
+
+	   Log->Add("Реєстраційні дані Менеджеру файлів АРМ ВЗ видалені із системи");
 	 }
   catch (Exception &e)
 	 {
 	   Log->Add("Помилка міграції: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TMainForm::Unregistration()
+{
+  try
+	 {
+	   TRegistry *reg = new TRegistry();
+
+	   try
+		  {
+			reg->RootKey = HKEY_CURRENT_USER;
+
+			if (reg->KeyExists("Software\\ArmFileAgent"))
+			  reg->DeleteKey("Software\\ArmFileAgent");
+		  }
+	   __finally {delete reg;}
+
+	   if (CheckAppAutoStart("ArmFileAgent", FOR_ALL_USERS))
+		 RemoveAppAutoStart("ArmFileAgent", FOR_ALL_USERS);
+	   else if (CheckAppAutoStart("ArmFileAgent", FOR_CURRENT_USER))
+		 RemoveAppAutoStart("ArmFileAgent", FOR_CURRENT_USER);
+
+	   Log->Add("Реєстраційні дані Агента видалені із системи");
+	 }
+  catch (Exception &e)
+	 {
+	   Log->Add("Помилка відміни реєстрації Агента у системі: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -223,7 +341,7 @@ int __fastcall TMainForm::ReadConfig()
 {
   Log->Add("Завантаження конфігу з " + DataPath + "\\main.cfg");
 
-  int result = 0;
+  int result = 1;
 
 //Основний конфіг
   try
@@ -237,7 +355,7 @@ int __fastcall TMainForm::ReadConfig()
 	   if (rp != RP_OK)
 		 {
 		   Log->Add("Помилка створення параметру MailFrom: " + String(GetLastReadParamResult()));
-		   result = -1;
+		   result = 0;
 		 }
 
 	   rp = ReadParameter(DataPath + "\\main.cfg", "MailTo", &MailTo, TT_TO_STR);
@@ -245,7 +363,7 @@ int __fastcall TMainForm::ReadConfig()
 	   if (rp != RP_OK)
 		 {
 		   Log->Add("Помилка створення параметру MailTo: " + String(GetLastReadParamResult()));
-		   result = -1;
+		   result = 0;
 		 }
 
 	   rp = ReadParameter(DataPath + "\\main.cfg", "MailCodePage", &MailCodePage, TT_TO_STR);
@@ -253,7 +371,7 @@ int __fastcall TMainForm::ReadConfig()
 	   if (rp != RP_OK)
 		 {
 		   Log->Add("Помилка створення параметру MailCodePage: " + String(GetLastReadParamResult()));
-		   result = -1;
+		   result = 0;
 		 }
 
 	   rp = ReadParameter(DataPath + "\\main.cfg", "SmtpHost", &SmtpHost, TT_TO_STR);
@@ -261,7 +379,7 @@ int __fastcall TMainForm::ReadConfig()
 	   if (rp != RP_OK)
 		 {
 		   Log->Add("Помилка створення параметру SmtpHost: " + String(GetLastReadParamResult()));
-		   result = -1;
+		   result = 0;
 		 }
 
 	   rp = ReadParameter(DataPath + "\\main.cfg", "SmtpPort", &SmtpPort, TT_TO_INT);
@@ -269,7 +387,7 @@ int __fastcall TMainForm::ReadConfig()
 	   if (rp != RP_OK)
 		 {
 		   Log->Add("Помилка створення параметру SmtpPort: " + String(GetLastReadParamResult()));
-		   result = -1;
+		   result = 0;
 		 }
 
 	   rp = ReadParameter(DataPath + "\\main.cfg", "RemAdmPort", &RemAdmPort, TT_TO_INT);
@@ -277,7 +395,7 @@ int __fastcall TMainForm::ReadConfig()
 	   if (rp != RP_OK)
 		 {
 		   Log->Add("Помилка створення параметру RemAdmPort: " + String(GetLastReadParamResult()));
-		   result = -1;
+		   result = 0;
 		 }
 
 	   rp = ReadParameter(DataPath + "\\main.cfg", "SendReportToMail", &SendReportToMail, TT_TO_BOOL);
@@ -285,7 +403,7 @@ int __fastcall TMainForm::ReadConfig()
 	   if (rp != RP_OK)
 		 {
 		   Log->Add("Помилка створення параметру SendReportToMail: " + String(GetLastReadParamResult()));
-		   result = -1;
+		   result = 0;
 		 }
 
 	   String str;
@@ -295,7 +413,7 @@ int __fastcall TMainForm::ReadConfig()
 	   if (rp != RP_OK)
 		 {
 		   Log->Add("Помилка створення параметру MailSubjectErr: " + String(GetLastReadParamResult()));
-		   result = -1;
+		   result = 0;
 		 }
 	   else
 		 MailSubjectErr = IndexVZ + " " + str;
@@ -305,50 +423,194 @@ int __fastcall TMainForm::ReadConfig()
 	   if (rp != RP_OK)
 		 {
 		   Log->Add("Помилка створення параметру MailSubjectOK: " + String(GetLastReadParamResult()));
-		   result = -1;
+		   result = 0;
 		 }
 	   else
 		 MailSubjectErr = IndexVZ + " " + str;
-
-	   rp = ReadParameter(DataPath + "\\main.cfg", "ControlScriptName", &ControlScript, TT_TO_STR);
-
-	   if (rp != RP_OK)
-		 {
-		   Log->Add("Помилка створення параметру ControlScriptName: " + String(GetLastReadParamResult()));
-		   result = -1;
-		 }
 
 	   rp = ReadParameter(DataPath + "\\main.cfg", "ScriptLog", &ScriptLog, TT_TO_BOOL);
 
 	   if (rp != RP_OK)
 		 {
 		   Log->Add("Помилка створення параметру ScriptLog: " + String(GetLastReadParamResult()));
-		   result = -1;
+		   result = 0;
 		 }
 
-	   rp = ReadParameter(DataPath + "\\main.cfg", "ScriptInterval", &ScriptInterval, TT_TO_INT);
-
-	   if (rp != RP_OK)
-		 {
-		   Log->Add("Помилка створення параметру ScriptInterval: " + String(GetLastReadParamResult()));
-		   result = -1;
-		 }
-
-	   for (int i = 0; i < SrvList->Count; i++)
-		  {
-			TExchangeConnect *srv = reinterpret_cast<TExchangeConnect*>(SrvList->Items[i]);
-
-            srv->ReInitialize();
-		  }
+	   for (int i = 0; i < ConnManager->ConnectionCount; i++)
+		  ConnManager->Connections[i]->ReInitialize();
 	 }
   catch(Exception &e)
 	 {
 	   Log->Add("Помилка читання конфігу: " + e.ToString());
 
-	   result = -1;
+	   result = 0;
 	 }
 
   return result;
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TMainForm::AddFirewallRule()
+{
+  try
+	 {
+	   Log->Add("Створення правил для файрволу");
+
+	   AnsiString cmd;
+
+	   if (system("netsh advfirewall firewall show rule name=\"ArmAgent\" dir=in") != 0)
+		 {
+		   cmd = "netsh advfirewall firewall add rule name=\"ArmAgent\" dir=in action=allow program=\"" + Application->ExeName + "\" enable=yes profile=domain";
+		   system(cmd.c_str());
+		   Sleep(100);
+
+		   cmd = "netsh advfirewall firewall add rule name=\"ArmAgent\" dir=in action=allow program=\"" + Application->ExeName + "\" enable=yes profile=private";
+		   system(cmd.c_str());
+		   Sleep(100);
+
+		   cmd = "netsh advfirewall firewall add rule name=\"ArmAgent\" dir=in action=allow program=\"" + Application->ExeName + "\" enable=yes profile=public";
+		   system(cmd.c_str());
+		   Sleep(100);
+		 }
+
+	   if (system("netsh advfirewall firewall show rule name=\"ArmAgent\" dir=out") != 0)
+		 {
+		   cmd = "netsh advfirewall firewall add rule name=\"ArmAgent\" dir=out action=allow program=\"" + Application->ExeName + "\" enable=yes profile=domain";
+		   system(cmd.c_str());
+		   Sleep(100);
+
+		   cmd = "netsh advfirewall firewall add rule name=\"ArmAgent\" dir=out action=allow program=\"" + Application->ExeName + "\" enable=yes profile=private";
+		   system(cmd.c_str());
+		   Sleep(100);
+
+		   cmd = "netsh advfirewall firewall add rule name=\"ArmAgent\" dir=out action=allow program=\"" + Application->ExeName + "\" enable=yes profile=public";
+		   system(cmd.c_str());
+		   Sleep(100);
+		 }
+
+	   if (system("netsh advfirewall firewall show rule name=\"FARA\" dir=in") != 0)
+		 {
+		   cmd = "netsh advfirewall firewall add rule name=\"FARA\" dir=in action=allow protocol=TCP localport=" + IntToStr(RemAdmPort) + " enable=yes profile=domain";
+		   system(cmd.c_str());
+		   Sleep(100);
+
+		   cmd = "netsh advfirewall firewall add rule name=\"FARA\" dir=in action=allow protocol=TCP localport=" + IntToStr(RemAdmPort) + " enable=yes profile=private";
+		   system(cmd.c_str());
+		   Sleep(100);
+
+		   cmd = "netsh advfirewall firewall add rule name=\"FARA\" dir=in action=allow protocol=TCP localport=" + IntToStr(RemAdmPort) + " enable=yes profile=public";
+		   system(cmd.c_str());
+		   Sleep(100);
+		 }
+
+	   /*if (system("netsh advfirewall firewall show rule name=\"FAGRA\" dir=in") != 0)
+		 {
+		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=in action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=domain";
+		   system(cmd.c_str());
+		   Sleep(100);
+
+		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=in action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=private";
+		   system(cmd.c_str());
+		   Sleep(100);
+
+		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=in action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=public";
+		   system(cmd.c_str());
+		   Sleep(100);
+		 }
+
+	   if (system("netsh advfirewall firewall show rule name=\"FAGRA\" dir=out") != 0)
+		 {
+		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=out action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=domain";
+		   system(cmd.c_str());
+		   Sleep(100);
+
+		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=out action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=private";
+		   system(cmd.c_str());
+		   Sleep(100);
+
+		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=out action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=public";
+		   system(cmd.c_str());
+		   Sleep(100);
+		 }*/
+
+	   if (system("netsh advfirewall firewall show rule name=\"FACS\" dir=in") != 0)
+		 {
+		   cmd = "netsh advfirewall firewall add rule name=\"FACS\" dir=in action=allow protocol=TCP localport=" + IntToStr(ConfigServerPort) + " enable=yes profile=domain";
+		   system(cmd.c_str());
+		   Sleep(100);
+
+		   cmd = "netsh advfirewall firewall add rule name=\"FACS\" dir=in action=allow protocol=TCP localport=" + IntToStr(ConfigServerPort) + " enable=yes profile=private";
+		   system(cmd.c_str());
+		   Sleep(100);
+
+		   cmd = "netsh advfirewall firewall add rule name=\"FACS\" dir=in action=allow protocol=TCP localport=" + IntToStr(ConfigServerPort) + " enable=yes profile=public";
+		   system(cmd.c_str());
+		   Sleep(100);
+		 }
+	 }
+  catch (Exception &e)
+	 {
+	   Log->Add("Створення правила для файрволу: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TMainForm::RemoveFirewallRule()
+{
+  try
+	 {
+	   Log->Add("Вилучення правил для файрволу");
+
+	   system("netsh advfirewall firewall delete rule name=\"ArmAgent\"");
+	 }
+  catch (Exception &e)
+	 {
+	   Log->Add("Вилучення правила для файрволу: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TMainForm::WriteSettings()
+{
+  try
+	 {
+	   TRegistry *reg = new TRegistry(KEY_WRITE);
+
+	   try
+		  {
+			reg->RootKey = HKEY_LOCAL_MACHINE;
+
+			if (!reg->KeyExists("Software\\ArmFileAgent"))
+			  reg->CreateKey("Software\\ArmFileAgent");
+
+			if (reg->OpenKey("Software\\ArmFileAgent", false))
+			  {
+				if (ConfigServerPort)
+				  reg->WriteInteger("ConfigServerPort", ConfigServerPort);
+
+				if (RemAdmPort)
+				  reg->WriteInteger("RemAdmPort", RemAdmPort);
+
+				if (ConfigServerHost != "")
+				  reg->WriteString("ConfigServerHost", ConfigServerHost);
+
+				if (StationID != "")
+				  reg->WriteString("StationID", StationID);
+
+				if (IndexVZ != "")
+				  reg->WriteString("IndexVZ", IndexVZ);
+
+				reg->WriteString("ModuleName", GetFileNameFromFilePath(Application->ExeName));
+
+				reg->CloseKey();
+			  }
+		  }
+	   __finally {delete reg;}
+	 }
+  catch (Exception &e)
+	 {
+	   Log->Add("Запис налаштувань до реєстру: " + e.ToString());
+	 }
 }
 //---------------------------------------------------------------------------
 
@@ -358,11 +620,11 @@ int __fastcall TMainForm::ReadSettings()
 
   try
 	 {
-       TRegistry *reg = new TRegistry();
+	   TRegistry *reg = new TRegistry(KEY_READ);
 
 	   try
 		  {
-			reg->RootKey = HKEY_CURRENT_USER;
+			reg->RootKey = HKEY_LOCAL_MACHINE;
 
 			if (reg->OpenKey("Software\\ArmFileAgent", false))
 			  {
@@ -375,18 +637,18 @@ int __fastcall TMainForm::ReadSettings()
 				  ConfigServerPort = reg->ReadInteger("ConfigServerPort");
 
 				if (reg->ValueExists("StationID"))
-				  StationID = reg->ReadString("ConfigServerHost");
-                else
+				  StationID = reg->ReadString("StationID");
+				else
 				  res = 0;
 
 				if (reg->ValueExists("IndexVZ"))
 				  IndexVZ = reg->ReadString("IndexVZ");
-                else
+				else
 				  res = 0;
 
 				if (reg->ValueExists("RemAdmPort"))
 				  RemAdmPort = reg->ReadInteger("RemAdmPort");
-                else
+				else
 				  res = 0;
 
 				reg->CloseKey();
@@ -403,22 +665,6 @@ int __fastcall TMainForm::ReadSettings()
 	 }
 
   return res;
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TMainForm::CreateServers()
-{
-  TStringList *servers = new TStringList();
-  String str;
-
-  try
-	 {
-	   GetFileList(servers, ConnPath, "*.cfg", false, true);
-
-	   for (int i = 0; i < servers->Count; i++)
-		  CreateConnection(servers->Strings[i]);
-	 }
-  __finally {delete servers;}
 }
 //---------------------------------------------------------------------------
 
@@ -467,9 +713,9 @@ void __fastcall TMainForm::SendMsg(String mail_addr, String subject, String from
 
 void __fastcall TMainForm::ShowInfoMsg(String text)
 {
-  TrayIcon1->BalloonFlags = bfInfo;
-  TrayIcon1->BalloonHint = text;
-  TrayIcon1->ShowBalloonHint();
+  TrayIcon->BalloonFlags = bfInfo;
+  TrayIcon->BalloonHint = text;
+  TrayIcon->ShowBalloonHint();
 }
 //-------------------------------------------------------------------------
 
@@ -546,20 +792,20 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 					   }
 					 else
 					   {
-						 TExchangeConnect *srv = FindServer(ind);
+						 TExchangeConnect *srv = ConnManager->Find(ind);
 
 						 if (srv)
 						   {
-							 ls->SaveToFile(srv->ServerCfgPath, TEncoding::UTF8);
+							 ls->SaveToFile(srv->ConfigPath, TEncoding::UTF8);
 							 srv->ReInitialize();
 						   }
 						 else
 						   throw Exception("невідомий ID з'єднання: " + list->Strings[2]);
 					   }
 
-					 TrayIcon1->BalloonFlags = bfInfo;
-					 TrayIcon1->BalloonHint = "Дані з конфігу оновлені";
-					 TrayIcon1->ShowBalloonHint();
+					 TrayIcon->BalloonFlags = bfInfo;
+					 TrayIcon->BalloonHint = "Дані з конфігу оновлені";
+					 TrayIcon->ShowBalloonHint();
 				   }
 				__finally {delete ls;}
 			  }
@@ -572,11 +818,11 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 				   {
 					 StrToList(ls, list->Strings[2], "#");
 
-					 ls->SaveToFile(ConnPath + "\\" + list->Strings[1], TEncoding::UTF8);
+					 ls->SaveToFile(DataPath + "\\" + list->Strings[1], TEncoding::UTF8);
 
-					 TrayIcon1->BalloonFlags = bfInfo;
-					 TrayIcon1->BalloonHint = "Отримано новий конфіг";
-					 TrayIcon1->ShowBalloonHint();
+					 TrayIcon->BalloonFlags = bfInfo;
+					 TrayIcon->BalloonHint = "Отримано новий конфіг";
+					 TrayIcon->ShowBalloonHint();
                      ReadConfig();
 				   }
 				__finally {delete ls;}
@@ -585,7 +831,7 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 			  {
 				//#delcfg_file%<filename>
 				Log->Add("FARA: отримано команду видалення конфігу, ім'я файлу: " + list->Strings[1]);
-				DeleteFile(ConnPath + "\\" + list->Strings[1] + ".cfg");
+				DeleteFile(DataPath + "\\" + list->Strings[1] + ".cfg");
 			  }
 			else if (list->Strings[0] == "#delcfg_name")
 			  {
@@ -594,12 +840,12 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 
 				int ind = GetConnectionID(list->Strings[1]);
 
-				TExchangeConnect *srv = FindServer(ind);
+				TExchangeConnect *srv = ConnManager->Find(ind);
 
 				if (srv)
 				  {
-					DeleteFile(srv->ServerCfgPath);
-					DestroyConnection(srv->ServerID);
+					DeleteFile(srv->ConfigPath);
+					DestroyConnection(srv->ID);
 				  }
 				else
 				  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
@@ -611,12 +857,12 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 
 				int ind = list->Strings[1].ToInt();
 
-				TExchangeConnect *srv = FindServer(ind);
+				TExchangeConnect *srv = ConnManager->Find(ind);
 
 				if (srv)
 				  {
-					DeleteFile(srv->ServerCfgPath);
-                    DestroyConnection(srv->ServerID);
+					DeleteFile(srv->ConfigPath);
+					DestroyConnection(srv->ID);
 				  }
 				else
 				  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
@@ -625,65 +871,46 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 			  {
 				int ind = list->Strings[1].ToInt();
 
-				if (ind == 0)
-				  StartWork();
-				else
+				TExchangeConnect *srv = ConnManager->Find(ind);
+
+				if (srv)
 				  {
-					TExchangeConnect *srv = FindServer(ind);
+					TAMThread *th = ConnManager->FindThread(srv->ThreadID);
 
-					if (srv)
-					  {
-						TAMThread *th = FindServerThread(srv->ServerThreadID);
+					if (th)
+					  th->PassedTime = srv->Config->MonitoringInterval;
 
-						if (th)
-						  th->PassedTime = srv->ConnectionConfig->MonitoringInterval;
-
-						if (!srv->Working())
-						  RunWork(srv);
-					  }
-					else
-					  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
+					if (!srv->Working())
+					  ConnManager->Run(srv);
 				  }
+				else
+				  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
 			  }
 			else if (list->Strings[0] == "#stop")
 			  {
 				int ind = list->Strings[1].ToInt();
 
-				if (ind == 0)
-				  StopWork();
-				else
-				  {
-					TExchangeConnect *srv = FindServer(ind);
+				TExchangeConnect *srv = ConnManager->Find(ind);
 
-					if (srv)
-					  EndWork(srv);
-					else
-					  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
-				  }
+				if (srv)
+				  ConnManager->Stop(srv);
+				else
+				  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
 			  }
 			else if (list->Strings[0] == "#restart")
 			  {
 				int ind = list->Strings[1].ToInt();
 
-				if (ind == 0)
+				TExchangeConnect *srv = ConnManager->Find(ind);
+
+				if (srv)
 				  {
-					StopWork();
+					ConnManager->Stop(srv);
 					Sleep(1000);
-					StartWork();
+					ConnManager->Run(srv);
 				  }
 				else
-				  {
-					TExchangeConnect *srv = FindServer(ind);
-
-					if (srv)
-					  {
-						EndWork(srv);
-						Sleep(1000);
-                        RunWork(srv);
-					  }
-					else
-					  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
-				  }
+				  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
 			  }
 			else if (list->Strings[0] == "#shutdown")
 			  {
@@ -728,6 +955,10 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 					 Log->Add("ELI: помилка виконання скрипту " + e.ToString());
 				   }
 			  }
+			else if (list->Strings[0] == "#status")
+			  {
+				ASendStatusAnswer(AContext);
+			  }
 			else
 			  throw Exception("Невідомі дані: " + list->Strings[0]);
 		  }
@@ -740,183 +971,28 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 }
 //---------------------------------------------------------------------------
 
-void __fastcall TMainForm::StopWork()
-{
-  try
-	 {
-	   SwitchOff->Visible = false;
-	   SwitchOn->Visible = true;
-	   LbStatus->Caption = "Зупинено";
-	   LbStatus->Font->Color = clRed;
-	   LbStatus->Tag = 0;
-
-	   TExchangeConnect *srv;
-
-	   for (int i = 0; i < SrvList->Count; i++)
-		  EndWork(reinterpret_cast<TExchangeConnect*>(SrvList->Items[i]));
-	 }
-  catch (Exception &e)
-	 {
-	   Log->Add("Зупинка роботи: " + e.ToString());
-	 }
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TMainForm::StartWork()
-{
-  try
-	 {
-	   SwitchOn->Visible = false;
-	   SwitchOff->Visible = true;
-	   LbStatus->Caption = "Робота";
-	   LbStatus->Font->Color = clLime;
-	   LbStatus->Tag = 1;
-
-	   TExchangeConnect *srv;
-
-	   for (int i = 0; i < SrvList->Count; i++)
-		  RunWork(reinterpret_cast<TExchangeConnect*>(SrvList->Items[i]));
-	 }
-  catch (Exception &e)
-	 {
-	   Log->Add("Початок роботи: " + e.ToString());
-
-	   throw new Exception("Помилка запуску!");
-	 }
-}
-//---------------------------------------------------------------------------
-
-TExchangeConnect* __fastcall TMainForm::FindServer(int id)
-{
-  for (int i = 0; i < SrvList->Count; i++)
-	 {
-	   TExchangeConnect *srv = reinterpret_cast<TExchangeConnect*>(SrvList->Items[i]);
-
-	   if (srv->ServerID == id)
-		 return srv;
-	 }
-
-  return NULL;
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TMainForm::DeleteServerThread(unsigned int id)
-{
-  int ind = 0;
-
-  while (ind < ThreadList->Count)
-	 {
-	   TAMThread *th = (TAMThread*)ThreadList->Items[ind];
-
-	   if (th->ThreadID == id)
-		 {
-		   ThreadList->Delete(ind);
-		   delete th;
-
-		   return;
-		 }
-	   else
-         ind++;
-	 }
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TMainForm::DeleteServerThreads()
-{
-  int ind = 0;
-
-  while (ind < ThreadList->Count)
-	 {
-	   TAMThread *th = (TAMThread*)ThreadList->Items[ind];
-
-	   ThreadList->Delete(ind);
-       delete th;
-	 }
-}
-//---------------------------------------------------------------------------
-
 void __fastcall TMainForm::RunWork(TExchangeConnect *server)
 {
-  if (server)
+  try
 	{
-	  if (!server->Working())
-		{
-		  if (server->ServerThreadID > 0)
-			ResumeWork(server);
-		  else if (server->Initialized())
-			{
-			  TAMThread *serv_thread = new TAMThread(true);
-			  serv_thread->InfoIcon = TrayIcon1;
-			  serv_thread->Connection = server;
-			  server->ServerThreadID = serv_thread->ThreadID;
-			  ThreadList->Add(serv_thread);
-			  serv_thread->Resume();
-			  server->Start();
-			}
-		  else
-			{
-			  Log->Add("З'єднання з ID " + IntToStr(server->ServerID) + " не ініціалізоване!");
-			  Log->SaveToFile(LogPath + "\\" + LogName);
-            }
-		}
+	  ConnManager->Run(server);
 	}
-  else
+  catch (Exception &e)
 	{
-	  Log->Add("Помилковий вказівник TExchangeConnect*");
-	}
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TMainForm::ResumeWork(TExchangeConnect *server)
-{
-  if (server)
-	{
-	  if (!server->Working())
-		server->Start();
-
-	  if (!FindServerThread(server->ServerThreadID))
-		{
-		  Log->Add("Зі з'єднанням " + IntToStr(server->ServerID) + ":" +
-				   server->ServerCaption +
-				   " не пов'язано жодного потоку!");
-		}
-	}
-  else
-	{
-	  Log->Add("Помилковий вказівник TExchangeConnect*");
+	  Log->Add("RunWork: " + e.ToString());
 	}
 }
 //---------------------------------------------------------------------------
 
 void __fastcall TMainForm::EndWork(TExchangeConnect *server)
 {
-  if (server)
+  try
 	{
-	  if (server->Working())
-		server->Stop();
-
-	  TAMThread *th = FindServerThread(server->ServerThreadID);
-
-	  if (th)
-		{
-		  th->Terminate();
-
-          while (!th->Finished)
-			Sleep(100);
-
-		  th->Connection = NULL;
-		  DeleteServerThread(th->ThreadID);
-          server->ServerThreadID = 0;
-		}
-      else
-		{
-		  Log->Add("Помилковий ID потоку " + server->ServerCaption +
-				   ", поток: " + IntToStr((int)server->ServerThreadID));
-		}
+	  ConnManager->Stop(server);
 	}
-  else
+  catch (Exception &e)
 	{
-	  Log->Add("Помилковий вказівник TExchangeConnect*");
+	  Log->Add("EndWork: " + e.ToString());
 	}
 }
 //---------------------------------------------------------------------------
@@ -934,27 +1010,71 @@ bool __fastcall TMainForm::GuardianRunning()
 
 int __fastcall TMainForm::RunGuardian()
 {
-  if (FileExists(DataPath + "\\ArmMngrGuard.exe"))
+  if (FileExists(DataPath + "\\AFAGuard.exe"))
 	{
 	  Log->Add("Запуск Guardian");
 
-	  ShellExecute(NULL,
+	  StartProcessByExeName(AppPath + "\\AFAGuard.exe");
+
+	  /*ShellExecute(NULL,
 				   L"open",
 				   String(AppPath + "\\AFAGuard.exe").c_str(),
 				   L"",
 				   NULL,
-				   SW_SHOWNORMAL);
+				   SW_SHOW);*/
 
 	  if (GuardianRunning())
-		return 0;
+		return 1;
 	  else
-		return -1;
+		return 0;
 	}
   else
 	{
 	  Log->Add("Не вдалося запустити Guardian: відсутній файл");
 
-      return -1;
+	  return 0;
+	}
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TMainForm::UpdateAgent()
+{
+  bool guard_running = GuardianRunning();
+
+  if (!guard_running && RunGuardian())
+	{
+	  Log->Add("Початок оновлення");
+	  //далі виконати дії для оновлення
+	}
+  else if (guard_running)
+	{
+	  Log->Add("Початок оновлення");
+	  //далівиконати  дії для оновлення
+	}
+  else
+	Log->Add("Відмова оновлення: Guardian не запущено");
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TMainForm::SendStartUpdateMessage()
+{
+  try
+	{
+	  DWORD guard_pid = GetProcessByExeName(L"AFAGuard.exe");
+
+	  if (!guard_pid)
+		throw new Exception("Процес Guardian не знайдено");
+
+	  HWND guard_handle = FindHandleByPID(guard_pid);
+
+	  if (!guard_handle)
+		throw new Exception("Не вдалося отримати хендл вікна Guardian");
+
+      SendMessage(guard_handle, WM_KEYDOWN, VK_RETURN, NULL);
+	}
+  catch (Exception &e)
+	{
+	  Log->Add("Відправка Guardian повідомлення про початок оновлення: " + e.ToString());
 	}
 }
 //---------------------------------------------------------------------------
@@ -962,18 +1082,6 @@ int __fastcall TMainForm::RunGuardian()
 void __fastcall TMainForm::IconPP1Click(TObject *Sender)
 {
   Close();
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TMainForm::SwitchOnClick(TObject *Sender)
-{
-  StartWork();
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TMainForm::SwitchOffClick(TObject *Sender)
-{
-  StopWork();
 }
 //---------------------------------------------------------------------------
 
@@ -1008,24 +1116,19 @@ void __fastcall TMainForm::SaveLogTimerTimer(TObject *Sender)
 }
 //---------------------------------------------------------------------------
 
-void __fastcall TMainForm::FormCreate(TObject *Sender)
+void __fastcall TMainForm::StartApplication()
 {
-  WindowState = wsMinimized;
-  AppVersion = GetVersionInString(Application->ExeName.c_str());
-  ModuleVersion->Caption = AppVersion;
-  TrayIcon1->Hint = Caption;
+  MenuItemList = new TList();
+  Log = new TThreadSafeLog();
+  ConnManager = new TConnectionManager();
+  ConfigLoader = new TConfigLoaderThread(true);
 
-  if (!DirectoryExists(LogPath))
-	CreateDir(LogPath);
-
-  if (!DirectoryExists(ConnPath))
-	CreateDir(ConnPath);
-
-  DateStart = Date().CurrentDate();
-  LogName = DateToStr(Date()) + ".log";
+  ConnManager->InfoIcon = TrayIcon;
 
   if (FileExists(LogPath + "\\" + LogName))
 	Log->LoadFromFile(LogPath + "\\" + LogName);
+
+  Log->Add("Агента запущено");
 
   if (ParamStr(1) == "-init")
 	{
@@ -1034,7 +1137,20 @@ void __fastcall TMainForm::FormCreate(TObject *Sender)
 	  else if (ParamStr(2) == "-migrate")
 		Migration();
 	  else
-		FirstStartInitialisation(INIT_MANUAL);
+		FirstStartInitialisation(INIT_CMDLINE);
+	}
+  else if (ParamStr(1) == "-unreg")
+	{
+	  Unregistration();
+	  Application->Terminate();
+	}
+  else if (ParamStr(1) == "-firewall-add")
+	{
+	  AddFirewallRule();
+	}
+  else if (ParamStr(1) == "-firewall-rem")
+	{
+	  RemoveFirewallRule();
 	}
 
   int settings = ReadSettings();
@@ -1044,128 +1160,61 @@ void __fastcall TMainForm::FormCreate(TObject *Sender)
   else if (settings == 0)
 	{
 	  Log->Add("Не всі параметри зчитано з реєстру. Проведіть процедуру первинної ініціалізації");
-      Application->Terminate();
-	}
-
-  AURAServer->DefaultPort = RemAdmPort;
-  AURAServer->Active = true;
-
-  if (ReadConfig() == 0)
-	{
-	  SaveLogTimer->Enabled = true;
-//підписуємось на отримання повідомлень WM_WTSSESSION_CHANGE
-//щоб зупиняти Менеджер, коли користувач виходить з обліковки
-	  if (!WTSRegisterSessionNotification(this->Handle, NOTIFY_FOR_THIS_SESSION))
-		throw new Exception("WTSRegisterSessionNotification() fail: " + IntToStr((int)GetLastError()));
-
-	  if (!GuardianRunning())
-		{
-		  if (RunGuardian() < 0)
-			Log->Add("Помилка під час запуску Guardian");
-		}
-
-	  try
-		 {
-		   InitInstance();
-		 }
-	  catch (Exception &e)
-		 {
-		   Log->Add("Ініціалізація: " + e.ToString());
-		 }
 	}
   else
 	{
-	  Log->SaveToFile(LogPath + "\\" + LogName);
-	  LbStatus->Caption = "Помилка!";
-	  SwitchOn->Enabled = false;
-	  SwitchOff->Enabled = false;
+	  AURAServer->DefaultPort = RemAdmPort;
+	  AURAServer->Active = true;
 
-	  if (SendReportToMail)
-		SendLog(MailTo, MailSubjectErr, MailFrom, Log->GetText());
+	  SaveLogTimer->Enabled = true;
+
+	  if (!WaitForLoadFromServer(2000))
+		{
+		  Log->Add("Немає відповіді від серверу конфігурацій");
+
+		  Log->Add("Іініціалізація з'єднаннь з наявних файлів");
+		  CreateExistConnections();
+		}
+	  else
+        Log->Add("Встановлено зв'язок із сервером конфігурацій");
+
+//підписуємось на отримання повідомлень WM_WTSSESSION_CHANGE
+//щоб зупиняти Менеджер, коли користувач виходить з обліковки
+	   if (!WTSRegisterSessionNotification(this->Handle, NOTIFY_FOR_THIS_SESSION))
+		 throw new Exception("WTSRegisterSessionNotification() fail: " + IntToStr((int)GetLastError()));
+
+	   if (!GuardianRunning())
+		 {
+		   if (RunGuardian() < 0)
+			 Log->Add("Помилка під час запуску Guardian");
+		 }
+
+	   LbStatus->Caption = "Робота";
+	   LbStatus->Font->Color = clLime;
 	}
 }
 //---------------------------------------------------------------------------
 
-void __fastcall TMainForm::InitInstance()
+void __fastcall TMainForm::StopApplication()
 {
   try
 	 {
-	   if (ConnectELI() == 0)
+	   LbStatus->Caption = "Зупинено";
+	   LbStatus->Font->Color = clRed;
+
+	   if (ConfigLoader && ConfigLoader->Started)
 		 {
-		   ExecuteScript("admin.es");
+		   ConfigLoader->Terminate();
 
-		   EliThread = new TAMEliThread(true);
-
-		   EliThread->ScriptPath = DataPath + "\\" + ControlScript;
-		   EliThread->Logging = ScriptLog;
-		   EliThread->SetRunInterval(ScriptInterval);
-		   EliThread->ELIInterface = eIface;
-		   EliThread->Resume();
-		   		   
-		   Log->Add("ELI: очікування на командний скрипт");
-		 }
-	 }
-  catch (Exception &e)
-	 {
-	   Log->Add("Ініціалізація та запуск: " + e.ToString());
-	 }
-
-  try
-	 {
-	   CreateServers();
-
-	   Log->Add("Початок роботи");
-	   Log->Add("Версія модулю: " + AppVersion);
-
-	   StartWork();
-
-	   TrayIcon1->BalloonFlags = bfInfo;
-	   TrayIcon1->BalloonHint = "Файловий агент АРМ ВЗ запущено";
-	   TrayIcon1->ShowBalloonHint();
-
-	   Initialised = true;
-	 }
-  catch (Exception &e)
-	 {
-	   Log->Add("Ініціалізація: " + e.ToString());
-	   Initialised = false;
-
-	   throw new Exception("Помилка ініціалізації!");
-	 }
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TMainForm::StopInstance()
-{
-  try
-	 {
-	   if (EliThread)
-		 {
-		   EliThread->Terminate();
-
-		   while (!EliThread->Finished)
+		   while (!ConfigLoader->Finished)
 			 Sleep(100);
 
-		   delete EliThread;
-		 }
+           delete ConfigLoader;
+         }
 
 	   ReleaseELI();
 
-	   if (LbStatus->Tag == 1)
-		 StopWork();
-
-	   for (int i = 0; i < SrvList->Count; i++)
-		  {
-			TExchangeConnect *srv = reinterpret_cast<TExchangeConnect*>(SrvList->Items[i]);
-
-			if (srv->Working())
-			  EndWork(srv);
-
-			delete srv;
-		  }
-
-       delete ConnManager;
-	   delete ThreadList;
+	   delete ConnManager;
 
 	   for (int i = 0; i < MenuItemList->Count; i++)
 		  {
@@ -1175,7 +1224,6 @@ void __fastcall TMainForm::StopInstance()
 
 	   delete MenuItemList;
 
-	   TrayIcon1->Visible = false;
 	   Log->Add("Кінець роботи");
 
 	   if (SendReportToMail)
@@ -1198,46 +1246,23 @@ void __fastcall TMainForm::IconPPConnClick(TObject *Sender)
 
   try
 	 {
-	   srv = FindServer(menu->Hint.ToInt());
+	   srv = ConnManager->Find(menu->Hint.ToInt());
 
 	   if (srv)
 		 {
-		   th = FindServerThread(srv->ServerThreadID);
+		   th = ConnManager->FindThread(srv->ThreadID);
 
 		   if (th)
-			 th->PassedTime = srv->ConnectionConfig->MonitoringInterval;
+			 th->PassedTime = srv->Config->MonitoringInterval;
 
            if (!srv->Working())
-		   	 RunWork(srv);
+			 ConnManager->Run(srv);
 		 }
 	 }
   catch (Exception &e)
 	 {
 	   Log->Add("Ручний запуск обміну: " + e.ToString());
 	 }
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TMainForm::FormDestroy(TObject *Sender)
-{
-  try
-	 {
-	   StopInstance();
-	 }
-  catch (Exception &e)
-	 {
-	   Log->Add(e.ToString());
-	 }
-
-//відписуємось від розсилки повідомлень WM_WTSSESSION_CHANGE
-  WTSUnRegisterSessionNotification(this->Handle);
-
-  AURAServer->Active = false;
-  SaveLogTimer->Enabled = false;
-
-  Log->SaveToFile(LogPath + "\\" + LogName);
-
-  delete Log;
 }
 //---------------------------------------------------------------------------
 
@@ -1251,10 +1276,10 @@ int __fastcall TMainForm::ASendStatus(TIdContext *AContext)
 
   try
 	 {
-	   for (int i = 0; i < SrvList->Count; i++)
+	   for (int i = 0; i < ConnManager->ConnectionCount; i++)
 		  {
-			TExchangeConnect *srv = reinterpret_cast<TExchangeConnect*>(SrvList->Items[i]);
-			msg += IntToStr(srv->ServerID) + ": " + srv->ServerCaption + "=" + srv->ServerStatus + "#";
+			TExchangeConnect *srv = ConnManager->Connections[i];
+			msg += IntToStr(srv->ID) + ": " + srv->Caption + "=" + srv->Status + "#";
 		  }
 
 	   msg.Delete(msg.Length(), 1);
@@ -1290,10 +1315,10 @@ int __fastcall TMainForm::ASendConfig(TStringList *list, TIdContext *AContext)
 			  ls->LoadFromFile(DataPath + "\\main.cfg");
 			else
 			  {
-				TExchangeConnect *srv = FindServer(ind);
+				TExchangeConnect *srv = ConnManager->Find(ind);
 
 				if (srv)
-				  ls->LoadFromFile(srv->ServerCfgPath);
+				  ls->LoadFromFile(srv->ConfigPath);
 				else
 				  throw Exception("Невідомий ID з'єднання: " + list->Strings[2]);
 			  }
@@ -1361,10 +1386,10 @@ int __fastcall TMainForm::ASendConnList(TIdContext *AContext)
 
   try
 	 {
-	   for (int i = 0; i < SrvList->Count; i++)
+	   for (int i = 0; i < ConnManager->ConnectionCount; i++)
 		  {
-			TExchangeConnect *srv = reinterpret_cast<TExchangeConnect*>(SrvList->Items[i]);
-			msg += IntToStr(srv->ServerID) + ": " + srv->ServerCaption + "#";
+			TExchangeConnect *srv = ConnManager->Connections[i];
+			msg += IntToStr(srv->ID) + ": " + srv->Caption + "#";
 		  }
 
 	   msg.Delete(msg.Length(), 1);
@@ -1390,15 +1415,15 @@ int __fastcall TMainForm::ASendThreadList(TIdContext *AContext)
 
   try
 	 {
-	   for (int i = 0; i < ThreadList->Count; i++)
+	   for (int i = 0; i < ConnManager->ThreadCount; i++)
 		  {
-			TAMThread *th = (TAMThread*)ThreadList->Items[i];
+			TAMThread *th = ConnManager->Threads[i];
 			msg += "Thread: " + IntToStr((int)th->ThreadID) + "=";
 
 			if (th->Connection)
 			  {
-				msg += "Connection: id=" + IntToStr((int)th->Connection->ServerID) + ", " +
-					   th->Connection->ServerCaption + ", ";
+				msg += "Connection: id=" + IntToStr((int)th->Connection->ID) + ", " +
+					   th->Connection->Caption + ", ";
 
 				if (th->Connection->Working())
 				  msg += "Runnig#";
@@ -1457,6 +1482,24 @@ int __fastcall TMainForm::ASendVersion(TIdContext *AContext)
   try
 	 {
 	   ms->WriteString(msg);
+	   ms->Position = 0;
+	   res = AAnswerToClient(AContext, ms);
+	 }
+  __finally {delete ms;}
+
+  return res;
+}
+//---------------------------------------------------------------------------
+
+int __fastcall TMainForm::ASendStatusAnswer(TIdContext *AContext)
+{
+  Log->Add("FARA: запит статусу Агента");
+
+  TStringStream *ms = new TStringStream("#ok", TEncoding::UTF8, true);
+  int res = -1;
+
+  try
+	 {
 	   ms->Position = 0;
 	   res = AAnswerToClient(AContext, ms);
 	 }
@@ -1551,37 +1594,46 @@ int __fastcall TMainForm::ReleaseELI()
 
 void __fastcall TMainForm::ExecuteScript(String ctrl_script_name)
 {
-  if (FileExists(DataPath + "\\" + ctrl_script_name))
+  if (ConnectELI() == 0)
 	{
-	  try
-		 {
-		   Log->Add("ELI: запуск скрипту " + DataPath + "\\" + ctrl_script_name);
+      if (FileExists(DataPath + "\\" + ctrl_script_name))
+		{
+		  try
+			 {
+			   Log->Add("ELI: запуск скрипту " + DataPath + "\\" + ctrl_script_name);
 
-		   eIface->RunScriptFromFile(String(DataPath + "\\" + ctrl_script_name).c_str(),
-									 L"",
-									 ScriptLog);
+			   eIface->RunScriptFromFile(String(DataPath + "\\" + ctrl_script_name).c_str(),
+										 L"",
+										 ScriptLog);
 
-		   DeleteFile(DataPath + "\\" + ctrl_script_name);
+			   TStringList *lst = new TStringList();
 
-		   TStringList *lst = new TStringList();
+			   try
+				  {
+					StrToList(lst, eIface->ShowInfoMessages(), "\r\n");
 
-		   try
-			  {
-				StrToList(lst, eIface->ShowInfoMessages(), "\r\n");
+					for (int i = 0; i < lst->Count; i++)
+					   Log->Add(lst->Strings[i]);
+				  }
+				__finally {delete lst;}
+			 }
+		  catch (Exception &e)
+			 {
+			   Log->Add("ELI: помилка виконання скрипту " + e.ToString());
+			 }
+		}
+	  else
+		{
+		  Log->Add("ELI: відсутній файл керуючого скрипта " + DataPath + "\\" + ctrl_script_name);
+		}
 
-				for (int i = 0; i < lst->Count; i++)
-				   Log->Add(lst->Strings[i]);
-			  }
-		   __finally {delete lst;}
-		 }
-	  catch (Exception &e)
-		 {
-		   Log->Add("ELI: помилка виконання скрипту " + e.ToString());
-		 }
+	  ReleaseELI();
 	}
   else
 	{
-	  Log->Add("ELI: відсутній файл керуючого скрипта " + DataPath + "\\" + ctrl_script_name);
+	  Log->Add("ELI: помилка підключення бібліотеки");
+
+	  return;
 	}
 }
 //---------------------------------------------------------------------------
@@ -1613,44 +1665,147 @@ void __fastcall TMainForm::LoadFunctionsToELI()
 }
 //---------------------------------------------------------------------------
 
-TExchangeConnect* __fastcall TMainForm::CreateConnection(String file)
+bool __fastcall TMainForm::WaitForLoadFromServer(long millisec)
 {
-  TExchangeConnect *res;
+  bool res;
+  long passed = 0;
 
   try
 	 {
-	   res = ConnManager->Add(file, GenConnectionID(), TrayIcon1, Log);
+	   Log->Add("Очікування зв'язку з сервером конфігурацій");
 
-	   TMenuItem *srv_menu = new TMenuItem(PopupMenu1);
+	   ConfigLoader->Resume();
 
-	   srv_menu->Caption = "Запустити " + res->ConnectionConfig->Caption;
-	   srv_menu->Hint = IntToStr(res->ServerID);
-	   IconPP5->Add(srv_menu);
-	   IconPP5->SubMenuImages = ImageList1;
-	   srv_menu->ImageIndex = 4;
-	   srv_menu->OnClick = IconPPConnClick;
+	   while (!ConfigLoader->Connected)
+		 {
+		   if (passed > millisec)
+			 break;
+		   else
+			 {
+			   Sleep(100);
+			   passed += 100;
+             }
+		 }
 
-	   MenuItemList->Add(srv_menu);
-	   SrvList->Add(res);
-
-	   RunWork(res);
+       res = ConfigLoader->Connected;
 	 }
   catch (Exception &e)
 	 {
-	   if (res) delete res;
+	   res = false;
 
-	   res = NULL;
-	   Log->Add("CreateConnection: " + e.ToString());
+	   Log->Add("Очікування зв'язку з сервером конфігурацій: " + e.ToString());
 	 }
 
   return res;
 }
 //---------------------------------------------------------------------------
 
+TExchangeConnect* __fastcall TMainForm::CreateConnection(String file)
+{
+  TExchangeConnect *res;
+
+  try
+	 {
+	   res = ConnManager->Add(file, Log);
+
+	   if (!res->Initialized())
+		 {
+		   ConnManager->Remove(res);
+
+		   return NULL;
+         }
+
+	   TMenuItem *srv_menu = new TMenuItem(PopupMenu);
+
+	   srv_menu->Caption = "Запустити " + res->Config->Caption;
+	   srv_menu->Hint = IntToStr(res->ID);
+	   IconPP5->Add(srv_menu);
+	   IconPP5->SubMenuImages = ImageList;
+	   srv_menu->ImageIndex = 4;
+	   srv_menu->OnClick = IconPPConnClick;
+
+	   MenuItemList->Add(srv_menu);
+
+	   ConnManager->Run(res);
+
+	   Log->Add("Створене з'єднання " + res->Config->Caption + " з конфігу " + file);
+	 }
+  catch (Exception &e)
+	 {
+	   if (res) ConnManager->Remove(res);
+
+	   res = NULL;
+	   Log->Add("Створення з'єднання: " + e.ToString());
+	 }
+
+  return res;
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TMainForm::RebuildConnection(String file)
+{
+  try
+	 {
+	   Log->Add("Перестворення з'єднання");
+
+	   TExchangeConnect *conn = ConnManager->Find(DataPath + "\\" + file);
+
+	   if (conn)
+		 DestroyConnection(conn->ID);
+
+	   CreateConnection(DataPath + "\\" + file);
+	 }
+  catch (Exception &e)
+	 {
+	   Log->Add("Перестворення з'єднання: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TMainForm::CheckAndStartConnection(String file)
+{
+  try
+	 {
+	   Log->Add("Перевірка та запуск з'єднання");
+
+	   TExchangeConnect *conn = ConnManager->Find(DataPath + "\\" + file);
+
+	   if (conn && (conn->Working()))
+		 {
+		   Log->Add("З'єднання вже запущене");
+		   return;
+		 }
+	   else if (!conn)
+		 CreateConnection(DataPath + "\\" + file);
+	 }
+  catch (Exception &e)
+	 {
+	   Log->Add("Перевірка та запуск з'єднання: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TMainForm::CreateExistConnections()
+{
+  TStringList *conns = new TStringList();
+  String str;
+
+  try
+	 {
+	   GetFileList(conns, DataPath, "*.cfg", WITHOUT_DIRS, WITHOUT_FULL_PATH);
+
+	   for (int i = 0; i < conns->Count; i++)
+		  {
+			if (UpperCase(conns->Strings[i]) != "MAIN.CFG")
+		      CreateConnection(DataPath + "\\" + conns->Strings[i]);
+		  }
+	 }
+  __finally {delete conns;}
+}
+//---------------------------------------------------------------------------
+
 int __fastcall TMainForm::CreateConnection(String file, bool create_menu)
 {
-  Log->Add("ELI: Створення з'єднання");
-
 //використаний шлях типу ".\file" - використовується поточний каталог
   if (file[1] == '.')
 	{
@@ -1661,72 +1816,72 @@ int __fastcall TMainForm::CreateConnection(String file, bool create_menu)
   if (!FileExists(file))
     return -1;
 
-  TExchangeConnect *srv = new TExchangeConnect(file, GenConnectionID(), TrayIcon1, Log);
+  TExchangeConnect *srv = ConnManager->Add(file, Log);
 
   if (create_menu)
 	{
-      TMenuItem *srv_menu = new TMenuItem(PopupMenu1);
+	  TMenuItem *srv_menu = new TMenuItem(PopupMenu);
 
-	  srv_menu->Caption = "Запустити " + srv->ConnectionConfig->Caption;
-	  srv_menu->Hint = IntToStr(srv->ServerID);
+	  srv_menu->Caption = "Запустити " + srv->Config->Caption;
+	  srv_menu->Hint = IntToStr(srv->ID);
 	  IconPP5->Add(srv_menu);
-	  IconPP5->SubMenuImages = ImageList1;
+	  IconPP5->SubMenuImages = ImageList;
 	  srv_menu->ImageIndex = 4;
 	  srv_menu->OnClick = IconPPConnClick;
 
 	  MenuItemList->Add(srv_menu);
     }
 
-  SrvList->Add(srv);
-
-  return srv->ServerID;
+  return srv->ID;
 }
 //---------------------------------------------------------------------------
 
 void __fastcall TMainForm::DestroyConnection(int id)
 {
-  Log->Add("ELI: Знищення з'єднання");
-
-  TExchangeConnect *srv = FindServer(id);
+  TExchangeConnect *srv = ConnManager->Find(id);
 
   if (srv)
 	{
-	  EndWork(srv);
-      SrvList->Delete(SrvList->IndexOf(srv));
+	  ConnManager->Stop(srv);
 
-	  delete srv;
-    }
+	  for (int i = 0; i < MenuItemList->Count; i++)
+		  {
+			TMenuItem *m = reinterpret_cast<TMenuItem*>(MenuItemList->Items[i]);
+
+			if (m->Hint.ToInt() == srv->ID)
+			  {
+				delete m;
+                MenuItemList->Delete(i);
+                break;
+			  }
+		  }
+
+      ConnManager->Remove(srv);
+	}
 }
 //---------------------------------------------------------------------------
 
 void __fastcall TMainForm::RemoveConnection(int id)
 {
-  Log->Add("ELI: Знищення з'єднання та видалення конфігу");
-
-  TExchangeConnect *srv = FindServer(id);
+  TExchangeConnect *srv = ConnManager->Find(id);
 
   if (srv)
 	{
-	  EndWork(srv);
-	  SrvList->Delete(SrvList->IndexOf(srv));
-	  DeleteFile(srv->ServerCfgPath);
-
-	  delete srv;
+	  DeleteFile(srv->ConfigPath);
+      DestroyConnection(id);
     }
 }
 //---------------------------------------------------------------------------
 
 void __fastcall TMainForm::StartConnection(int id)
 {
-  Log->Add("ELI: Запуск з'єднання");
-  RunWork(FindServer(id));
+  RunWork(ConnManager->Find(id));
 }
 //---------------------------------------------------------------------------
 
 void __fastcall TMainForm::StopConnection(int id)
 {
-  Log->Add("ELI: Зупинка з'єднання");
-  EndWork(FindServer(id));
+  EndWork(ConnManager->Find(id));
 }
 //---------------------------------------------------------------------------
 
@@ -1734,13 +1889,13 @@ int __fastcall TMainForm::GetConnectionID(String caption)
 {
   int res = 0;
 
-  for (int i = 0; i < SrvList->Count; i++)
+  for (int i = 0; i < ConnManager->ConnectionCount; i++)
 	 {
-	   TExchangeConnect *srv = reinterpret_cast<TExchangeConnect*>(SrvList->Items[i]);
+	   TExchangeConnect *srv = ConnManager->Connections[i];
 
-	   if (srv->ConnectionConfig->Caption == caption)
+	   if (srv->Config->Caption == caption)
 		 {
-		   res = srv->ServerID;
+		   res = srv->ID;
            break;
 		 }
 	 }
@@ -1753,10 +1908,10 @@ int __fastcall TMainForm::GetConnectionID(int index)
 {
   int res = 0;
 
-  if ((index >= 0) && (index < SrvList->Count))
+  if ((index >= 0) && (index < ConnManager->ConnectionCount))
 	{
-	  TExchangeConnect *srv = reinterpret_cast<TExchangeConnect*>(SrvList->Items[index]);
-	  res = srv->ServerID;
+	  TExchangeConnect *srv = ConnManager->Connections[index];
+	  res = srv->ID;
 	}
 
   return res;
@@ -1766,7 +1921,7 @@ int __fastcall TMainForm::GetConnectionID(int index)
 int __fastcall TMainForm::ConnectionStatus(int id)
 {
   int res;
-  TExchangeConnect *srv = FindServer(id);
+  TExchangeConnect *srv = ConnManager->Find(id);
 
   if (srv)
 	{
@@ -1785,10 +1940,10 @@ int __fastcall TMainForm::ConnectionStatus(int id)
 String __fastcall TMainForm::ConnectionCfgPath(int id)
 {
   String res = "";
-  TExchangeConnect *srv = FindServer(id);
+  TExchangeConnect *srv = ConnManager->Find(id);
 
   if (srv)
-	res = srv->ServerCfgPath;
+	res = srv->ConfigPath;
 
   return res;
 }
@@ -1796,19 +1951,12 @@ String __fastcall TMainForm::ConnectionCfgPath(int id)
 
 void __fastcall TMainForm::ReloadConfig()
 {
-  Log->Add("ELI: Команда оновлення конфігів");
-
-  TrayIcon1->BalloonFlags = bfInfo;
-  TrayIcon1->BalloonHint = "Дані з конфігу оновлені";
-  TrayIcon1->ShowBalloonHint();
-  ReadConfig();
+  //тут буде примусове з'єднання з сервером конфігів та зчитування отриманих конфігів
 }
 //---------------------------------------------------------------------------
 
 bool __fastcall TMainForm::RemoveFromCfg(String file, String param)
 {
-  Log->Add("ELI: Читання параметру " + param + " з файлу " + file);
-
 //використаний шлях типу ".\file" - використовується поточний каталог
   if (file[1] == '.')
 	{
@@ -1825,8 +1973,6 @@ bool __fastcall TMainForm::RemoveFromCfg(String file, String param)
 
 bool __fastcall TMainForm::WriteToCfg(String file, String param, String val)
 {
-  Log->Add("ELI: Запис параметру " + param + " у файл " + file);
-
   bool res;
 
 //використаний шлях типу ".\file" - використовується поточний каталог
@@ -1852,18 +1998,16 @@ bool __fastcall TMainForm::WriteToCfg(String file, String param, String val)
 
 bool __fastcall TMainForm::WriteToCfg(int id, String param, String val)
 {
-  Log->Add("ELI: Запис параметру " + param + " у конфіг підключення з ID = " + id);
-
   bool res;
 
-  TExchangeConnect *srv = FindServer(id);
+  TExchangeConnect *srv = ConnManager->Find(id);
 
   if (srv)
 	{
-	  if (GetConfigLineInd(srv->ServerCfgPath, param) > -1)
-		res = SetConfigLine(srv->ServerCfgPath, param, val);
+	  if (GetConfigLineInd(srv->ConfigPath, param) > -1)
+		res = SetConfigLine(srv->ConfigPath, param, val);
 	  else
-		res = AddConfigLine(srv->ServerCfgPath, param, val);
+		res = AddConfigLine(srv->ConfigPath, param, val);
 	}
 
   return res;
@@ -1878,30 +2022,24 @@ void __fastcall TMainForm::WriteToMngrLog(String msg)
 
 void __fastcall TMainForm::ShutdownManager()
 {
-  Log->Add("ELI: Отримано команду shutdown");
   PostMessage(Application->Handle, WM_QUIT, 0, 0);
 }
 //---------------------------------------------------------------------------
 
 void __fastcall TMainForm::ShutdownGuardian()
 {
-  Log->Add("ELI: Отримано команду зупинки Guardian");
   PostMessage(FindHandleByName(L"Guardian Файлового агенту АРМ ВЗ"), WM_QUIT, 0, 0);
 }
 //---------------------------------------------------------------------------
 
 int __fastcall TMainForm::StartGuardian()
 {
-  Log->Add("ELI: Отримано команду запуску Guardian");
-
   return RunGuardian();
 }
 //---------------------------------------------------------------------------
 
 int __fastcall TMainForm::RestartGuardian()
 {
-  Log->Add("ELI: Отримано команду перезапуску Guardian");
-
   PostMessage(FindHandleByName(L"Guardian Файлового агенту АРМ ВЗ"), WM_QUIT, 0, 0);
 
   Sleep(1000);
@@ -1912,278 +2050,509 @@ int __fastcall TMainForm::RestartGuardian()
 
 void __stdcall eConnectionsCount(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
-  wchar_t res[10];
-  swprintf(res, L"%d", MainForm->Connections->Count);
+  ELI_INTERFACE *ep;
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+  try
+	 {
+	   ep = static_cast<ELI_INTERFACE*>(p);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eConnectionsCount(): " + e.ToString());
+
+	   return;
+	 }
+
+  try
+	 {
+       wchar_t res[10];
+	   swprintf(res, L"%d", ConnManager->ConnectionCount);
+
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eConnectionsCount(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"-1");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eCreateConnection(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
-  bool menu = (bool)ep->GetParamToInt(L"pAddMenu");
-  wchar_t res[3];
+  ELI_INTERFACE *ep;
 
   try
 	 {
-	   int id = MainForm->CreateConnection(ep->GetParamToStr(L"pFile"), menu);
-
-	   wcscpy(res, IntToStr(id).c_str());
+	   ep = static_cast<ELI_INTERFACE*>(p);
 	 }
   catch (Exception &e)
 	 {
-	   SaveLog("exceptions.log", "eCreateConnection(): " + e.ToString());
-	   wcscpy(res, L"0");
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eCreateConnection(): " + e.ToString());
+
+	   return;
 	 }
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+  try
+	 {
+       wchar_t res[3];
+	   bool menu = (bool)ep->GetParamToInt(L"pAddMenu");
+	   String file = ep->GetParamToStr(L"pFile");
+
+	   Log->Add("ELI: Створення з'єднання з конфігу " + file);
+
+	   int id = MainForm->CreateConnection(file, menu);
+
+	   wcscpy(res, IntToStr(id).c_str());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eCreateConnection(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eDestroyConnection(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
-  wchar_t res[3];
+  Log->Add("ELI: Знищення з'єднання");
+
+  ELI_INTERFACE *ep;
 
   try
 	 {
-	   MainForm->DestroyConnection(ep->GetParamToInt(L"pID"));
-       wcscpy(res, L"1");
+	   ep = static_cast<ELI_INTERFACE*>(p);
 	 }
   catch (Exception &e)
 	 {
-	   SaveLog("exceptions.log", "eDestroyConnection(): " + e.ToString());
-	   wcscpy(res, L"0");
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eDestroyConnection(): " + e.ToString());
+
+	   return;
 	 }
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+  try
+	 {
+	   wchar_t res[3];
+
+	   MainForm->DestroyConnection(ep->GetParamToInt(L"pID"));
+	   wcscpy(res, L"1");
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eDestroyConnection(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eRemoveConnection(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
-  wchar_t res[3];
+  Log->Add("ELI: Знищення з'єднання та видалення конфігу");
+
+  ELI_INTERFACE *ep;
 
   try
 	 {
-	   MainForm->RemoveConnection(ep->GetParamToInt(L"pID"));
-       wcscpy(res, L"1");
+	   ep = static_cast<ELI_INTERFACE*>(p);
 	 }
   catch (Exception &e)
 	 {
-	   SaveLog("exceptions.log", "eRemoveConnection(): " + e.ToString());
-	   wcscpy(res, L"0");
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eRemoveConnection(): " + e.ToString());
+
+	   return;
 	 }
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+  try
+	 {
+	   wchar_t res[3];
+
+	   MainForm->RemoveConnection(ep->GetParamToInt(L"pID"));
+	   wcscpy(res, L"1");
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eRemoveConnection(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eStartConnection(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
-  wchar_t res[3];
+  Log->Add("ELI: Запуск з'єднання");
+
+  ELI_INTERFACE *ep;
 
   try
 	 {
-	   MainForm->StartConnection(ep->GetParamToInt(L"pID"));
-       wcscpy(res, L"1");
+	   ep = static_cast<ELI_INTERFACE*>(p);
 	 }
   catch (Exception &e)
 	 {
-	   SaveLog("exceptions.log", "eStartConnection(): " + e.ToString());
-	   wcscpy(res, L"0");
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eStartConnection(): " + e.ToString());
+
+	   return;
 	 }
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+  try
+	 {
+	   wchar_t res[3];
+
+	   MainForm->StartConnection(ep->GetParamToInt(L"pID"));
+	   wcscpy(res, L"1");
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eStartConnection(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eStopConnection(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
-  wchar_t res[3];
+  Log->Add("ELI: Зупинка з'єднання");
+
+ ELI_INTERFACE *ep;
 
   try
 	 {
-	   MainForm->StopConnection(ep->GetParamToInt(L"pID"));
-       wcscpy(res, L"1");
+	   ep = static_cast<ELI_INTERFACE*>(p);
 	 }
   catch (Exception &e)
 	 {
-	   SaveLog("exceptions.log", "eStopConnection(): " + e.ToString());
-	   wcscpy(res, L"0");
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eStopConnection(): " + e.ToString());
+
+	   return;
 	 }
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+  try
+	 {
+	   wchar_t res[3];
+
+	   MainForm->StopConnection(ep->GetParamToInt(L"pID"));
+	   wcscpy(res, L"1");
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eStopConnection(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eConnectionID(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
-  wchar_t res[3];
+  ELI_INTERFACE *ep;
 
   try
 	 {
-	   swprintf(res, L"%d", MainForm->GetConnectionID(ep->GetParamToStr(L"pCap")));
+	   ep = static_cast<ELI_INTERFACE*>(p);
 	 }
   catch (Exception &e)
 	 {
-	   SaveLog("exceptions.log", "eConnectionID(): " + e.ToString());
-	   wcscpy(res, L"0");
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eConnectionID(): " + e.ToString());
+
+	   return;
 	 }
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+  try
+	 {
+	   wchar_t res[3];
+
+	   swprintf(res, L"%d", MainForm->GetConnectionID(ep->GetParamToStr(L"pCap")));
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eConnectionID(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eConnectionIDInd(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
-  wchar_t res[3];
+  ELI_INTERFACE *ep;
 
   try
 	 {
-	   swprintf(res, L"%d", MainForm->GetConnectionID(ep->GetParamToInt(L"pIndex")));
+	   ep = static_cast<ELI_INTERFACE*>(p);
 	 }
   catch (Exception &e)
 	 {
-	   SaveLog("exceptions.log", "eConnectionIDInd(): " + e.ToString());
-	   wcscpy(res, L"0");
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eConnectionIDInd(): " + e.ToString());
+
+	   return;
 	 }
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+  try
+	 {
+	   wchar_t res[3];
+
+	   swprintf(res, L"%d", MainForm->GetConnectionID(ep->GetParamToInt(L"pIndex")));
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eConnectionIDInd(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eConnectionStatus(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
-  wchar_t res[3];
+  ELI_INTERFACE *ep;
 
   try
 	 {
-	   swprintf(res, L"%d", MainForm->GetConnectionID(ep->GetParamToInt(L"pID")));
+	   ep = static_cast<ELI_INTERFACE*>(p);
 	 }
   catch (Exception &e)
 	 {
-	   SaveLog("exceptions.log", "eConnectionStatus(): " + e.ToString());
-	   wcscpy(res, L"-2");
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eConnectionStatus(): " + e.ToString());
+
+	   return;
 	 }
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+  try
+	 {
+	   wchar_t res[3];
+
+	   swprintf(res, L"%d", MainForm->GetConnectionID(ep->GetParamToInt(L"pID")));
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eConnectionStatus(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"-2");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eConnectionCfgPath(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
-  String res;
+ ELI_INTERFACE *ep;
 
   try
 	 {
-	   res = MainForm->ConnectionCfgPath(ep->GetParamToInt(L"pID"));
+	   ep = static_cast<ELI_INTERFACE*>(p);
 	 }
   catch (Exception &e)
 	 {
-	   SaveLog("exceptions.log", "eConnectionCfgPath(): " + e.ToString());
-	   res = "";
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eConnectionCfgPath(): " + e.ToString());
+
+	   return;
 	 }
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), res.c_str());
+  try
+	 {
+	   String res = MainForm->ConnectionCfgPath(ep->GetParamToInt(L"pID"));
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), res.c_str());
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eConnectionCfgPath(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eReloadConfig(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
+  Log->Add("ELI: Команда оновлення конфігів");
 
-  MainForm->ReloadConfig();
+  ELI_INTERFACE *ep;
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+  try
+	 {
+	   ep = static_cast<ELI_INTERFACE*>(p);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eReloadConfig(): " + e.ToString());
+
+	   return;
+	 }
+
+  try
+	 {
+	   MainForm->ReloadConfig();
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"1");
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eReloadConfig(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eReadFromCfg(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
-  String res;
+  ELI_INTERFACE *ep;
 
-  if (ReadParameter(ep->GetParamToStr(L"pFile"),
-					ep->GetParamToStr(L"pPrm"),
-					&res,
-					TT_TO_STR) == RP_OK)
-	{
-	  ep->SetFunctionResult(ep->GetCurrentFuncName(), res.c_str());
-	}
-  else
-	{
-	  ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
-	}
+  try
+	 {
+	   ep = static_cast<ELI_INTERFACE*>(p);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eReadFromCfg(): " + e.ToString());
+
+	   return;
+	 }
+
+  try
+	 {
+	   String res, param = ep->GetParamToStr(L"pPrm"), file = ep->GetParamToStr(L"pFile");
+
+	   Log->Add("ELI: Читання параметру " + param + " з файлу " + file);
+
+	   if (ReadParameter(file, param, &res, TT_TO_STR) == RP_OK)
+		 ep->SetFunctionResult(ep->GetCurrentFuncName(), res.c_str());
+	   else
+		 ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eReadFromCfg(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eRemoveFromCfg(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
+  ELI_INTERFACE *ep;
 
-  if (MainForm->RemoveFromCfg(ep->GetParamToStr(L"pFile"),
-							  ep->GetParamToStr(L"pPrm")))
-	{
-	  ep->SetFunctionResult(ep->GetCurrentFuncName(), L"1");
-	}
-  else
-	{
-	  ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
-	}
+  try
+	 {
+	   ep = static_cast<ELI_INTERFACE*>(p);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eRemoveFromCfg(): " + e.ToString());
+
+	   return;
+	 }
+
+  try
+	 {
+	   String res, param = ep->GetParamToStr(L"pPrm"), file = ep->GetParamToStr(L"pFile");
+
+	   Log->Add("ELI: Видалення параметру " + param + " з файлу " + file);
+
+	   if (MainForm->RemoveFromCfg(file, param))
+		 ep->SetFunctionResult(ep->GetCurrentFuncName(), L"1");
+	   else
+		 ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eRemoveFromCfg(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eWriteToCfg(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
+  ELI_INTERFACE *ep;
 
-  if (!MainForm->WriteToCfg(ep->GetParamToStr(L"pFile"),
-							ep->GetParamToStr(L"pPrm"),
-							ep->GetParamToStr(L"pVal")))
-	{
-	  ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
-	}
-  else
-	ep->SetFunctionResult(ep->GetCurrentFuncName(), L"1");
+  try
+	 {
+	   ep = static_cast<ELI_INTERFACE*>(p);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eWriteToCfg(): " + e.ToString());
+
+	   return;
+	 }
+
+  try
+	 {
+	   String res, param = ep->GetParamToStr(L"pPrm"), file = ep->GetParamToStr(L"pFile");
+
+	   Log->Add("ELI: Запис параметру " + param + " у файл " + file);
+
+	   if (MainForm->WriteToCfg(file, param, ep->GetParamToStr(L"pVal")))
+		 ep->SetFunctionResult(ep->GetCurrentFuncName(), L"1");
+	   else
+		 ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eWriteToCfg(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eWriteToCfgByID(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
+  ELI_INTERFACE *ep;
 
-  if (!MainForm->WriteToCfg(ep->GetParamToInt(L"pID"),
-							ep->GetParamToStr(L"pPrm"),
-							ep->GetParamToStr(L"pVal")))
-	{
-	  ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
-	}
-  else
-	ep->SetFunctionResult(ep->GetCurrentFuncName(), L"1");
+  try
+	 {
+	   ep = static_cast<ELI_INTERFACE*>(p);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eWriteToCfgByID(): " + e.ToString());
+
+	   return;
+	 }
+
+  try
+	 {
+	   String param = ep->GetParamToStr(L"pPrm"), id = ep->GetParamToStr(L"pID");
+
+	   Log->Add("ELI: Запис параметру " + param + " у конфіг підключення з ID = " + id);
+
+	   if (MainForm->WriteToCfg(id.ToInt(), param, ep->GetParamToStr(L"pVal")))
+		 ep->SetFunctionResult(ep->GetCurrentFuncName(), L"1");
+	   else
+		 ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eWriteToCfgByID(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eWriteMsgToLog(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
+  ELI_INTERFACE *ep;
+
+  try
+	 {
+	   ep = static_cast<ELI_INTERFACE*>(p);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eWriteMsgToLog(): " + e.ToString());
+
+	   return;
+	 }
 
   try
 	 {
 	   MainForm->WriteToMngrLog(ep->GetParamToStr(L"pMsg"));
 	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"1");
 	 }
-  catch (...)
+  catch (Exception &e)
 	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eWriteMsgToLog(): " + e.ToString());
 	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
 	 }
 }
@@ -2191,75 +2560,179 @@ void __stdcall eWriteMsgToLog(void *p)
 
 void __stdcall eGetAppPath(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
+  ELI_INTERFACE *ep;
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), AppPath.c_str());
+  try
+	 {
+	   ep = static_cast<ELI_INTERFACE*>(p);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eGetAppPath(): " + e.ToString());
+
+	   return;
+	 }
+
+  try
+	 {
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), AppPath.c_str());
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eGetAppPath(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eGetDataPath(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
+  ELI_INTERFACE *ep;
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), DataPath.c_str());
+  try
+	 {
+	   ep = static_cast<ELI_INTERFACE*>(p);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eGetDataPath(): " + e.ToString());
+
+	   return;
+	 }
+
+  try
+	 {
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), DataPath.c_str());
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eGetDataPath(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eShutdownManager(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
+  Log->Add("ELI: Отримано команду shutdown");
 
-  MainForm->ShutdownManager();
+  ELI_INTERFACE *ep;
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+  try
+	 {
+	   ep = static_cast<ELI_INTERFACE*>(p);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eShutdownManager(): " + e.ToString());
+
+	   return;
+	 }
+
+  try
+	 {
+	   MainForm->ShutdownManager();
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"1");
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eShutdownManager(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eShutdownGuardian(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
+  Log->Add("ELI: Отримано команду зупинки Guardian");
 
-  MainForm->ShutdownGuardian();
+  ELI_INTERFACE *ep;
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+  try
+	 {
+	   ep = static_cast<ELI_INTERFACE*>(p);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eShutdownGuardian(): " + e.ToString());
+
+	   return;
+	 }
+
+  try
+	 {
+	   MainForm->ShutdownGuardian();
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"1");
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eShutdownGuardian(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eStartGuardian(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
-  wchar_t res[3];
+  Log->Add("ELI: Отримано команду запуску Guardian");
+
+  ELI_INTERFACE *ep;
 
   try
 	 {
-	   swprintf(res, L"%d", MainForm->StartGuardian());
+	   ep = static_cast<ELI_INTERFACE*>(p);
 	 }
   catch (Exception &e)
 	 {
-	   SaveLog("exceptions.log", "eStartGuardian(): " + e.ToString());
-	   wcscpy(res, L"-2");
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eStartGuardian(): " + e.ToString());
+
+	   return;
 	 }
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+  try
+	 {
+	   wchar_t res[3];
+
+	   swprintf(res, L"%d", MainForm->StartGuardian());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eStartGuardian(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"-2");
+	 }
 }
 //---------------------------------------------------------------------------
 
 void __stdcall eRestartGuardian(void *p)
 {
-  ELI_INTERFACE *ep = (ELI_INTERFACE*)p;
-  wchar_t res[3];
+  Log->Add("ELI: Отримано команду перезапуску Guardian");
+
+  ELI_INTERFACE *ep;
 
   try
 	 {
-	   swprintf(res, L"%d", MainForm->RestartGuardian());
+	   ep = static_cast<ELI_INTERFACE*>(p);
 	 }
   catch (Exception &e)
 	 {
-	   SaveLog("exceptions.log", "eRestartGuardian(): " + e.ToString());
-	   wcscpy(res, L"-2");
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eRestartGuardian(): " + e.ToString());
+
+	   return;
 	 }
 
-  ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+  try
+	 {
+	   wchar_t res[3];
+
+	   swprintf(res, L"%d", MainForm->RestartGuardian());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), res);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eRestartGuardian(): " + e.ToString());
+	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"-2");
+	 }
 }
 //---------------------------------------------------------------------------
 
@@ -2273,9 +2746,7 @@ void __fastcall TMainForm::WndProc(Messages::TMessage& Msg)
 
 		  try
 			 {
-			   ShutdownGuardian();
-			   StopWork();
-			   AURAServer->Active = false;
+			   StopApplication();
 			 }
 		  catch (Exception &e)
 			 {
@@ -2288,9 +2759,7 @@ void __fastcall TMainForm::WndProc(Messages::TMessage& Msg)
 
 		  try
 			 {
-               StartGuardian();
-			   StartWork();
-			   AURAServer->Active = true;
+			   StartApplication();
 			 }
 		  catch (Exception &e)
 			 {
@@ -2302,5 +2771,4 @@ void __fastcall TMainForm::WndProc(Messages::TMessage& Msg)
   TForm::WndProc(Msg);
 }
 //---------------------------------------------------------------------------
-
 

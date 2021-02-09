@@ -45,8 +45,6 @@ struct SERVCFG
   String BackUpDirUl;
   unsigned char TransType;
   int MonitoringInterval;
-  int ConnInterval;
-  int MaxTry;
   String UploadFilesMask;
   bool RegExUL;
   String DownloadFilesMask;
@@ -58,10 +56,9 @@ struct SERVCFG
   bool BackUpDl;
   bool BackUpUl;
   bool RunOnce;
-  bool StartAtTime;
+  TTime StartAtTime;
   bool SubDirsDl;
   bool SubDirsCrt;
-  TTime TimeStart;
   int BackUpKeepDays;
   bool AppendModeUL;
   bool AppendModeDL;
@@ -72,15 +69,15 @@ class TExchangeConnect
   private:
 	bool Running;
 	bool Init;
-	int ID;
-	unsigned int thID;
-	String Status;
-	String CfgPath;
-	SERVCFG Config;
+	int FID;
+	unsigned int FthID;
+	String FStatus;
+	String FCfgPath;
+	SERVCFG FConfig;
 	TIdFTP *FtpLoader;
 	TThreadSafeLog *Log;
-	bool EndThread;
-	int ExchangeStatus;
+	bool FEndThread;
+	int FExchangeStatus;
 	TStringList *SuccList;
 
 	bool ConnectToFTP();
@@ -141,7 +138,7 @@ class TExchangeConnect
 
 	ExchageExitCode UpLoad(String source, String mask, String destin, String backup);
 
-    SERVCFG *GetConfig(){return &Config;}
+    SERVCFG *GetConfig(){return &FConfig;}
 
 	void CheckConfig(String cfg_file);
 
@@ -164,25 +161,20 @@ class TExchangeConnect
 	bool VerifyFile(const String &remote_file, const String &local_file);
 
   public:
-	TExchangeConnect(int ID,
-					 TTrayIcon *Icon,
-					 TThreadSafeLog *Log);
+	TExchangeConnect(int ID, TThreadSafeLog *Log);
 
-	TExchangeConnect(String cfg_file,
-					 int ID,
-					 TTrayIcon *Icon,
-					 TThreadSafeLog *Log);
+	TExchangeConnect(String cfg_file, int ID, TThreadSafeLog *Log);
 
 	virtual ~TExchangeConnect();
 
-	__property int ServerID = {read = ID, write = ID};
-	__property unsigned int ServerThreadID = {read = thID, write = thID};
-	__property String ServerCaption = {read = Config.Caption};
-	__property String ServerStatus = {read = Status, write = Status};
-	__property String ServerCfgPath = {read = CfgPath};
-	__property SERVCFG *ConnectionConfig = {read = GetConfig};
-	__property bool EndServerThread = {read = EndThread, write = EndThread};
-	__property int CurrentExchangeStatus = {read = ExchangeStatus};
+	__property int ID = {read = FID, write = FID};
+	__property unsigned int ThreadID = {read = FthID, write = FthID};
+	__property String Caption = {read = FConfig.Caption};
+	__property String Status = {read = FStatus, write = FStatus};
+	__property String ConfigPath = {read = FCfgPath};
+	__property SERVCFG *Config = {read = GetConfig};
+	__property bool EndThread = {read = FEndThread, write = FEndThread};
+	__property int ExchangeStatus = {read = FExchangeStatus};
 	__property TStringList *SuccessFiles = {read = SuccList, write = SuccList};
 	__property bool SupportsVerification = {read = GetVerification};
 

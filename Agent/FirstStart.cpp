@@ -4,19 +4,22 @@
 #pragma hdrstop
 
 #include "..\..\work-functions\MyFunc.h"
+#include "Main.h"
 #include "FirstStart.h"
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 #pragma resource "*.dfm"
 TFirstStartForm *FirstStartForm;
 
+extern TMainForm *MainForm;
 extern String StationID, IndexVZ, ConfigServerHost, LogPath;
-
 extern int RemAdmPort, ConfigServerPort;
+bool used_migration;
 //---------------------------------------------------------------------------
 __fastcall TFirstStartForm::TFirstStartForm(TComponent* Owner)
 	: TForm(Owner)
 {
+
 }
 //---------------------------------------------------------------------------
 
@@ -25,6 +28,7 @@ void __fastcall TFirstStartForm::FormShow(TObject *Sender)
   MigrationInitPanel->Hide();
   ManualInitPanel->Show();
   LbStationID->Caption = GetPCName();
+  used_migration = false;
 }
 //---------------------------------------------------------------------------
 
@@ -96,21 +100,37 @@ void __fastcall TFirstStartForm::ApplyClick(TObject *Sender)
 			   MB_OK|MB_ICONWARNING);
 		}
 
-	  AddFirewallRule();
-      WriteSettings();
+	  if (ManageFirewall->Checked)
+        MainForm->AddFirewallRule();
 
-      Close();
+	  MainForm->WriteSettings();
+
+	  if (used_migration)
+		{
+          ShutdownProcessByExeName("ArmMngr.exe");
+
+		  if (CheckAppAutoStart("ArmFileManager", FOR_ALL_USERS))
+			RemoveAppAutoStart("ArmFileManager", FOR_ALL_USERS);
+		  else if (CheckAppAutoStart("ArmFileManager", FOR_CURRENT_USER))
+			RemoveAppAutoStart("ArmFileManager", FOR_CURRENT_USER);
+        }
+
+      StartProcessByExeName(Application->ExeName);
+	  Close();
+      MainForm->Close();
 	}
 }
 //---------------------------------------------------------------------------
 
 void __fastcall TFirstStartForm::CancelClick(TObject *Sender)
 {
-  if (MessageDlg("Ініціалізацію не завершено. Ви впевнені, що хочете вийти?",
-				 mtConfirmation,
-				 mbYesNo, 0) == mrYes)
+  if (MessageBox(Application->Handle,
+				 L"Ініціалізацію не завершено. Ви впевнені, що хочете вийти?",
+				 L"Підтвердження дії!",
+				 MB_YESNO|MB_ICONWARNING) == mrYes)
 	{
 	  Close();
+	  MainForm->Close();
 	}
 }
 //---------------------------------------------------------------------------
@@ -127,173 +147,92 @@ void __fastcall TFirstStartForm::EnableAutoStartClick(TObject *Sender)
 }
 //---------------------------------------------------------------------------
 
-void __fastcall TFirstStartForm::AddFirewallRule()
+void __fastcall TFirstStartForm::OpenManagerCfgClick(TObject *Sender)
 {
   try
 	 {
-	   AnsiString cmd;
-
-	   if (system("netsh advfirewall firewall show rule name=\"ArmAgent\" dir=in") != 0)
+	   if (OpenCfgDialog->Execute())
 		 {
-		   cmd = "netsh advfirewall firewall add rule name=\"ArmAgent\" dir=in action=allow program=\"" + Application->ExeName + "\" enable=yes profile=domain";
-		   system(cmd.c_str());
-		   Sleep(100);
+		   SaveLog(LogPath + "\\init.log",
+				   "Розпочато процес міграції з файлу " + OpenCfgDialog->FileName);
 
-		   cmd = "netsh advfirewall firewall add rule name=\"ArmAgent\" dir=in action=allow program=\"" + Application->ExeName + "\" enable=yes profile=private";
-		   system(cmd.c_str());
-		   Sleep(100);
+		   String index, port;
+		   bool autorun, autorun_all;
 
-		   cmd = "netsh advfirewall firewall add rule name=\"ArmAgent\" dir=in action=allow program=\"" + Application->ExeName + "\" enable=yes profile=public";
-		   system(cmd.c_str());
-		   Sleep(100);
-		 }
+		   int rp;
 
-	   if (system("netsh advfirewall firewall show rule name=\"ArmAgent\" dir=out") != 0)
-		 {
-		   cmd = "netsh advfirewall firewall add rule name=\"ArmAgent\" dir=out action=allow program=\"" + Application->ExeName + "\" enable=yes profile=domain";
-		   system(cmd.c_str());
-		   Sleep(100);
+		   rp = ReadParameter(OpenCfgDialog->FileName, "IndexVZ", &index, TT_TO_STR);
 
-		   cmd = "netsh advfirewall firewall add rule name=\"ArmAgent\" dir=out action=allow program=\"" + Application->ExeName + "\" enable=yes profile=private";
-		   system(cmd.c_str());
-		   Sleep(100);
+		   if (rp != RP_OK)
+			 {
+			   index = "";
 
-		   cmd = "netsh advfirewall firewall add rule name=\"ArmAgent\" dir=out action=allow program=\"" + Application->ExeName + "\" enable=yes profile=public";
-		   system(cmd.c_str());
-		   Sleep(100);
-		 }
+			   MessageBox(Application->Handle,
+						  L"Помилка читання параметру IndexVZ",
+						  L"Увага!",
+						  MB_OK|MB_ICONWARNING);
+			 }
 
-	   if (system("netsh advfirewall firewall show rule name=\"FARA\" dir=in") != 0)
-		 {
-		   cmd = "netsh advfirewall firewall add rule name=\"FARA\" dir=in action=allow protocol=TCP localport=" + IntToStr(RemAdmPort) + " enable=yes profile=domain";
-		   system(cmd.c_str());
-		   Sleep(100);
+		   rp = ReadParameter(OpenCfgDialog->FileName, "RemAdmPort", &port, TT_TO_STR);
 
-		   cmd = "netsh advfirewall firewall add rule name=\"FARA\" dir=in action=allow protocol=TCP localport=" + IntToStr(RemAdmPort) + " enable=yes profile=private";
-		   system(cmd.c_str());
-		   Sleep(100);
+		   if (rp != RP_OK)
+			 {
+			   port = "";
 
-		   cmd = "netsh advfirewall firewall add rule name=\"FARA\" dir=in action=allow protocol=TCP localport=" + IntToStr(RemAdmPort) + " enable=yes profile=public";
-		   system(cmd.c_str());
-		   Sleep(100);
-		 }
+			   MessageBox(Application->Handle,
+						  L"Помилка читання параметру RemAdmPort",
+						  L"Увага!",
+						  MB_OK|MB_ICONWARNING);
+			 }
 
-	   if (system("netsh advfirewall firewall show rule name=\"FARA\" dir=out") != 0)
-		 {
-		   cmd = "netsh advfirewall firewall add rule name=\"FARA\" dir=out action=allow protocol=TCP localport=" + IntToStr(RemAdmPort) + " enable=yes profile=domain";
-		   system(cmd.c_str());
-		   Sleep(100);
+		   rp = ReadParameter(OpenCfgDialog->FileName, "EnableAutoStart", &autorun, TT_TO_BOOL);
 
-		   cmd = "netsh advfirewall firewall add rule name=\"FARA\" dir=out action=allow protocol=TCP localport=" + IntToStr(RemAdmPort) + " enable=yes profile=private";
-		   system(cmd.c_str());
-		   Sleep(100);
+		   if (rp != RP_OK)
+			 {
+			   autorun = false;
 
-		   cmd = "netsh advfirewall firewall add rule name=\"FARA\" dir=out action=allow protocol=TCP localport=" + IntToStr(RemAdmPort) + " enable=yes profile=public";
-		   system(cmd.c_str());
-		   Sleep(100);
-		 }
+			   MessageBox(Application->Handle,
+						  L"Помилка читання параметру EnableAutoStart",
+						  L"Увага!",
+						  MB_OK|MB_ICONWARNING);
+			 }
 
-	   if (system("netsh advfirewall firewall show rule name=\"FAGRA\" dir=in") != 0)
-		 {
-		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=in action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=domain";
-		   system(cmd.c_str());
-		   Sleep(100);
+		   rp = ReadParameter(OpenCfgDialog->FileName, "AutoStartForAllUsers", &autorun_all, TT_TO_BOOL);
 
-		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=in action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=private";
-		   system(cmd.c_str());
-		   Sleep(100);
+		   if (rp != RP_OK)
+			 {
+               autorun_all = false;
 
-		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=in action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=public";
-		   system(cmd.c_str());
-		   Sleep(100);
-		 }
+			   MessageBox(Application->Handle,
+						  L"Помилка читання параметру AutoStartForAllUsers",
+						  L"Увага!",
+						  MB_OK|MB_ICONWARNING);
+			 }
 
-	   if (system("netsh advfirewall firewall show rule name=\"FAGRA\" dir=out") != 0)
-		 {
-		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=out action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=domain";
-		   system(cmd.c_str());
-		   Sleep(100);
+		   MigrIndexVZ->Caption = index;
+		   MigrRemAdmPort->Caption = port;
 
-		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=out action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=private";
-		   system(cmd.c_str());
-		   Sleep(100);
+		   if (autorun)
+			 MigrAutoStart->Caption = "так";
+		   else
+			 MigrAutoStart->Caption = "ні";
 
-		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=out action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=public";
-		   system(cmd.c_str());
-		   Sleep(100);
-		 }
+		   if (autorun_all)
+			 MigrAutoStartForAll->Caption = "так";
+		   else
+			 MigrAutoStartForAll->Caption = "ні";
 
-	   if (system("netsh advfirewall firewall show rule name=\"FACS\" dir=in") != 0)
-		 {
-		   cmd = "netsh advfirewall firewall add rule name=\"FACS\" dir=in action=allow protocol=TCP localport=" + IntToStr(ConfigServerPort) + " enable=yes profile=domain";
-		   system(cmd.c_str());
-		   Sleep(100);
+		   Index->Text = index;
+           RemoteAdminPort->Text = port;
+		   EnableAutoStart->Checked = autorun;
+		   AllUsersAutoStart->Checked = autorun_all;
 
-		   cmd = "netsh advfirewall firewall add rule name=\"FACS\" dir=in action=allow protocol=TCP localport=" + IntToStr(ConfigServerPort) + " enable=yes profile=private";
-		   system(cmd.c_str());
-		   Sleep(100);
-
-		   cmd = "netsh advfirewall firewall add rule name=\"FACS\" dir=in action=allow protocol=TCP localport=" + IntToStr(ConfigServerPort) + " enable=yes profile=public";
-		   system(cmd.c_str());
-		   Sleep(100);
-		 }
-
-	   if (system("netsh advfirewall firewall show rule name=\"FACS\" dir=out") != 0)
-		 {
-		   cmd = "netsh advfirewall firewall add rule name=\"FACS\" dir=out action=allow protocol=TCP localport=" + IntToStr(ConfigServerPort) + " enable=yes profile=domain";
-		   system(cmd.c_str());
-		   Sleep(100);
-
-		   cmd = "netsh advfirewall firewall add rule name=\"FACS\" dir=out action=allow protocol=TCP localport=" + IntToStr(ConfigServerPort) + " enable=yes profile=private";
-		   system(cmd.c_str());
-		   Sleep(100);
-
-		   cmd = "netsh advfirewall firewall add rule name=\"FACS\" dir=out action=allow protocol=TCP localport=" + IntToStr(ConfigServerPort) + " enable=yes profile=public";
-		   system(cmd.c_str());
+		   used_migration = true;
 		 }
 	 }
   catch (Exception &e)
 	 {
-	   SaveLog(LogPath + "\\init.log", "Створення правила для файрволу: " + e.ToString());
-	 }
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TFirstStartForm::WriteSettings()
-{
-  try
-	 {
-       TRegistry *reg = new TRegistry();
-
-	   try
-		  {
-			reg->RootKey = HKEY_CURRENT_USER;
-
-			if (reg->OpenKey("Software\\ArmFileAgent", false))
-			  {
-				if (ConfigServerPort)
-				  reg->WriteInteger("ConfigServerPort", ConfigServerPort);
-
-				if (RemAdmPort)
-				  reg->WriteInteger("RemAdmPort", RemAdmPort);
-
-				if (ConfigServerHost != "")
-				  reg->WriteString("ConfigServerHost", ConfigServerHost);
-
-				if (StationID != "")
-				  reg->WriteString("StationID", StationID);
-
-				if (IndexVZ != "")
-				  reg->WriteString("IndexVZ", IndexVZ);
-
-				reg->CloseKey();
-			  }
-		  }
-	   __finally {delete reg;}
-	 }
-  catch (Exception &e)
-	 {
-	   SaveLog(LogPath + "\\init.log", "Запис налаштувань до реєстру: " + e.ToString());
+	   SaveLog(LogPath + "\\init.log", "Помилка міграції: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------

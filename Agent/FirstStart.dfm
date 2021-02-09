@@ -1,10 +1,10 @@
 object FirstStartForm: TFirstStartForm
   Left = 0
   Top = 0
-  BorderIcons = [biSystemMenu]
+  BorderIcons = []
   BorderStyle = bsSingle
   Caption = #1055#1077#1088#1096#1080#1081' '#1079#1072#1087#1091#1089#1082' '#1060#1072#1081#1083#1086#1074#1086#1075#1086' '#1072#1075#1077#1085#1090#1091
-  ClientHeight = 608
+  ClientHeight = 385
   ClientWidth = 411
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -20,9 +20,9 @@ object FirstStartForm: TFirstStartForm
   object LbStationID: TLabel
     Left = 80
     Top = 8
-    Width = 65
+    Width = 46
     Height = 16
-    Caption = 'LbStationID'
+    Caption = '<none>'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
@@ -45,16 +45,16 @@ object FirstStartForm: TFirstStartForm
   end
   object MigrationInitPanel: TPanel
     Left = 8
-    Top = 215
-    Width = 393
+    Top = 191
+    Width = 395
     Height = 146
     TabOrder = 2
-    object Label2: TLabel
+    object MigrIndexVZ: TLabel
       Left = 152
       Top = 55
-      Width = 65
+      Width = 46
       Height = 16
-      Caption = 'LbStationID'
+      Caption = '<none>'
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -75,12 +75,12 @@ object FirstStartForm: TFirstStartForm
       Font.Style = []
       ParentFont = False
     end
-    object Label4: TLabel
+    object MigrRemAdmPort: TLabel
       Left = 152
       Top = 77
-      Width = 65
+      Width = 46
       Height = 16
-      Caption = 'LbStationID'
+      Caption = '<none>'
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -101,12 +101,12 @@ object FirstStartForm: TFirstStartForm
       Font.Style = []
       ParentFont = False
     end
-    object Label6: TLabel
+    object MigrAutoStart: TLabel
       Left = 152
       Top = 99
-      Width = 65
+      Width = 46
       Height = 16
-      Caption = 'LbStationID'
+      Caption = '<none>'
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -140,12 +140,12 @@ object FirstStartForm: TFirstStartForm
       Font.Style = []
       ParentFont = False
     end
-    object Label9: TLabel
+    object MigrAutoStartForAll: TLabel
       Left = 152
       Top = 121
-      Width = 65
+      Width = 46
       Height = 16
-      Caption = 'LbStationID'
+      Caption = '<none>'
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
@@ -170,12 +170,13 @@ object FirstStartForm: TFirstStartForm
       Height = 25
       Caption = '...'
       TabOrder = 1
+      OnClick = OpenManagerCfgClick
     end
   end
   object InitKind: TRadioGroup
-    Left = 10
+    Left = 9
     Top = 80
-    Width = 393
+    Width = 394
     Height = 105
     Caption = #1054#1073#1077#1088#1110#1090#1100' '#1090#1080#1087' '#1110#1085#1110#1094#1110#1072#1083#1110#1079#1072#1094#1110#1111
     ItemIndex = 0
@@ -187,8 +188,8 @@ object FirstStartForm: TFirstStartForm
   end
   object ManualInitPanel: TPanel
     Left = 8
-    Top = 377
-    Width = 393
+    Top = 191
+    Width = 395
     Height = 146
     TabOrder = 1
     object Index: TLabeledEdit
@@ -202,8 +203,8 @@ object FirstStartForm: TFirstStartForm
       TabOrder = 0
     end
     object RemoteAdminPort: TLabeledEdit
-      Left = 8
-      Top = 76
+      Left = 104
+      Top = 31
       Width = 81
       Height = 21
       EditLabel.Width = 204
@@ -212,8 +213,8 @@ object FirstStartForm: TFirstStartForm
       TabOrder = 1
     end
     object EnableAutoStart: TCheckBox
-      Left = 8
-      Top = 111
+      Left = 12
+      Top = 71
       Width = 193
       Height = 17
       Caption = #1040#1074#1090#1086#1084#1072#1090#1080#1095#1085#1086' '#1079#1072#1087#1091#1089#1082#1072#1090#1080' '#1040#1075#1077#1085#1090#1072
@@ -221,17 +222,25 @@ object FirstStartForm: TFirstStartForm
       OnClick = EnableAutoStartClick
     end
     object AllUsersAutoStart: TCheckBox
-      Left = 240
-      Top = 111
+      Left = 211
+      Top = 71
       Width = 137
       Height = 17
       Caption = #1044#1083#1103' '#1074#1089#1110#1093' '#1082#1086#1088#1080#1089#1090#1091#1074#1072#1095#1110#1074
       TabOrder = 3
     end
+    object ManageFirewall: TCheckBox
+      Left = 12
+      Top = 112
+      Width = 193
+      Height = 17
+      Caption = #1044#1086#1076#1072#1090#1080' '#1074#1080#1082#1083#1102#1095#1077#1085#1085#1085#1103' '#1091' '#1060#1072#1081#1088#1074#1086#1083
+      TabOrder = 4
+    end
   end
   object Cancel: TBitBtn
     Left = 306
-    Top = 561
+    Top = 353
     Width = 97
     Height = 25
     Caption = #1057#1082#1072#1089#1091#1074#1072#1090#1080
@@ -242,7 +251,7 @@ object FirstStartForm: TFirstStartForm
   end
   object Apply: TBitBtn
     Left = 8
-    Top = 561
+    Top = 353
     Width = 90
     Height = 25
     Caption = #1047#1073#1077#1088#1077#1075#1090#1080
