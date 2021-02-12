@@ -11,7 +11,6 @@ object Guardian: TGuardian
   Font.Name = 'Tahoma'
   Font.Style = []
   OldCreateOrder = False
-  WindowState = wsMinimized
   OnClose = FormClose
   OnCreate = FormCreate
   PixelsPerInch = 96

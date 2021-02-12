@@ -22,7 +22,7 @@ extern String UsedAppLogDir; //вказуємо директорію для логування для функцій з M
 
 String StationID, IndexVZ, MailFrom, MailTo, ConfigServerHost,
 	   MailSubjectErr, MailSubjectOK, MailCodePage,
-	   SmtpHost, LogName, DataPath, LogPath, AppVersion;
+	   SmtpHost, LogName, DataPath, LogPath, AppVersion, AppPath, AppName;
 
 int SmtpPort, RemAdmPort, ConfigServerPort;
 bool SendReportToMail, ScriptLog;
@@ -40,28 +40,19 @@ FREEELIINTERFACE FreeELI;
 
 ELI_INTERFACE *eIface;
 
-String AppPath;
-
 TDate DateStart;
 
-const int MainPrmCnt = 16;
+const int MainPrmCnt = 9;
 
-const wchar_t *MainParams[MainPrmCnt] = {L"StationID",
-										 L"IndexVZ",
-										 L"MailFrom",
+const wchar_t *MainParams[MainPrmCnt] = {L"MailFrom",
 										 L"MailTo",
 										 L"MailCodePage",
 										 L"SmtpHost",
 										 L"SmtpPort",
-										 L"RemAdmPort",
 										 L"SendReportToMail",
-										 L"EnableAutoStart",
 										 L"MailSubjectErr",
 										 L"MailSubjectOK",
-										 L"ControlScriptName",
-										 L"ScriptLog",
-										 L"ScriptInterval",
-										 L"AutoStartForAllUsers"};
+										 L"ScriptLog"};
 //---------------------------------------------------------------------------
 
 __fastcall TMainForm::TMainForm(TComponent* Owner)
@@ -70,8 +61,11 @@ __fastcall TMainForm::TMainForm(TComponent* Owner)
   UsedAppLogDir = "AFAgent\\Log";
 
   AppPath = GetDirPathFromFilePath(Application->ExeName);
+  AppName = GetFileNameFromFilePath(Application->ExeName);
+
   DataPath = GetEnvironmentVariable("USERPROFILE") + "\\Documents\\AFAgent";
   LogPath = DataPath + "\\Log";
+  DataPath += "\\Data";
 
   if (!DirectoryExists(DataPath))
 	CreateDir(DataPath);
@@ -600,7 +594,34 @@ void __fastcall TMainForm::WriteSettings()
 				if (IndexVZ != "")
 				  reg->WriteString("IndexVZ", IndexVZ);
 
-				reg->WriteString("ModuleName", GetFileNameFromFilePath(Application->ExeName));
+				reg->CloseKey();
+			  }
+		  }
+	   __finally {delete reg;}
+	 }
+  catch (Exception &e)
+	 {
+	   Log->Add("Запис налаштувань до реєстру: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TMainForm::WriteModulePath()
+{
+  try
+	 {
+	   TRegistry *reg = new TRegistry(KEY_WRITE);
+
+	   try
+		  {
+			reg->RootKey = HKEY_CURRENT_USER;
+
+			if (!reg->KeyExists("Software\\ArmFileAgent"))
+			  reg->CreateKey("Software\\ArmFileAgent");
+
+			if (reg->OpenKey("Software\\ArmFileAgent", false))
+			  {
+				reg->WriteString("ModulePath", Application->ExeName);
 
 				reg->CloseKey();
 			  }
@@ -1014,7 +1035,7 @@ int __fastcall TMainForm::RunGuardian()
 	{
 	  Log->Add("Запуск Guardian");
 
-	  StartProcessByExeName(AppPath + "\\AFAGuard.exe");
+	  StartProcessByExeName(DataPath + "\\AFAGuard.exe");
 
 	  /*ShellExecute(NULL,
 				   L"open",
@@ -1037,22 +1058,22 @@ int __fastcall TMainForm::RunGuardian()
 }
 //---------------------------------------------------------------------------
 
-void __fastcall TMainForm::UpdateAgent()
+void __fastcall TMainForm::UpdateRequest()
 {
   bool guard_running = GuardianRunning();
 
   if (!guard_running && RunGuardian())
 	{
-	  Log->Add("Початок оновлення");
-	  //далі виконати дії для оновлення
+	  Log->Add("Запит на оновлення");
+	  SendStartUpdateMessage();
 	}
   else if (guard_running)
 	{
-	  Log->Add("Початок оновлення");
-	  //далівиконати  дії для оновлення
+	  Log->Add("Запит на оновлення");
+	  SendStartUpdateMessage();
 	}
   else
-	Log->Add("Відмова оновлення: Guardian не запущено");
+	Log->Add("Запит на оновлення не відправлено: Guardian не запущено");
 }
 //---------------------------------------------------------------------------
 
@@ -1070,7 +1091,7 @@ void __fastcall TMainForm::SendStartUpdateMessage()
 	  if (!guard_handle)
 		throw new Exception("Не вдалося отримати хендл вікна Guardian");
 
-      SendMessage(guard_handle, WM_KEYDOWN, VK_RETURN, NULL);
+	  PostMessage(guard_handle, WM_KEYDOWN, VK_RETURN, NULL);
 	}
   catch (Exception &e)
 	{
@@ -1163,6 +1184,8 @@ void __fastcall TMainForm::StartApplication()
 	}
   else
 	{
+	  WriteModulePath();
+
 	  AURAServer->DefaultPort = RemAdmPort;
 	  AURAServer->Active = true;
 
@@ -1772,7 +1795,7 @@ void __fastcall TMainForm::CheckAndStartConnection(String file)
 
 	   if (conn && (conn->Working()))
 		 {
-		   Log->Add("З'єднання вже запущене");
+		   Log->Add("З'єднання " + conn->Caption + " вже запущене");
 		   return;
 		 }
 	   else if (!conn)
@@ -1780,7 +1803,7 @@ void __fastcall TMainForm::CheckAndStartConnection(String file)
 	 }
   catch (Exception &e)
 	 {
-	   Log->Add("Перевірка та запуск з'єднання: " + e.ToString());
+	   Log->Add("Перевірка та запуск з'єднання :" + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------

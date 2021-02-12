@@ -132,13 +132,14 @@ public:		// User declarations
 
 	int __fastcall ReadSettings();
 	void __fastcall WriteSettings();
+    void __fastcall WriteModulePath();
 	void __fastcall AddFirewallRule();
 	void __fastcall RemoveFirewallRule();
 
     int __fastcall ConnectELI();
 	int __fastcall ReleaseELI();
 	void __fastcall ExecuteScript(String ctrl_script_name);
-	void __fastcall UpdateAgent();
+	void __fastcall UpdateRequest();
     void __fastcall SendStartUpdateMessage();
 	int __fastcall ReadConfig();
 	void __fastcall RebuildConnection(String file);

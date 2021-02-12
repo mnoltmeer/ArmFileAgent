@@ -25,9 +25,7 @@ __published:	// IDE-managed Components
 	void __fastcall FormClose(TObject *Sender, TCloseAction &Action);
 
 private:	// User declarations
-	String __fastcall GetAgentName();
-	void __fastcall UpdateAgent();
-	void __fastcall TerminateAgent();
+	String __fastcall GetAgentPath();
 
 public:		// User declarations
 	__fastcall TGuardian(TComponent* Owner);

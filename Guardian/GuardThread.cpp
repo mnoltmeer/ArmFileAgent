@@ -15,10 +15,11 @@ Copyright 2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 extern TThreadSafeLog *Log;
 //---------------------------------------------------------------------------
 
-__fastcall TGuardThread::TGuardThread(bool CreateSuspended, const String agent_name)
+__fastcall TGuardThread::TGuardThread(bool CreateSuspended, const String agent_path)
 	: TThread(CreateSuspended)
 {
-  FAgentName = agent_name;
+  FAgentPath = agent_path;
+  FAgentName = GetFileNameFromFilePath(FAgentPath);
 }
 //---------------------------------------------------------------------------
 
@@ -26,7 +27,13 @@ void __fastcall TGuardThread::CheckAgent()
 {
   try
 	 {
+	   DWORD agent_pid = GetProcessByExeName(FAgentName.c_str());
 
+	   if (!agent_pid)
+		 {
+		   Log->Add("Запуск Агента");
+		   StartProcessByExeName(FAgentPath);
+         }
 	 }
   catch (Exception &e)
 	 {

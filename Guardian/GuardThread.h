@@ -11,7 +11,8 @@ Copyright 2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 class TGuardThread : public TThread
 {
 private:
-	String FAgentName;
+	String FAgentPath;
+    String FAgentName;
 	double FPassed, FInterval;
 
 	void __fastcall CheckAgent();
@@ -19,7 +20,7 @@ private:
 protected:
 	void __fastcall Execute();
 public:
-	__fastcall TGuardThread(bool CreateSuspended, const String agent_name);
+	__fastcall TGuardThread(bool CreateSuspended, const String agent_path);
 };
 //---------------------------------------------------------------------------
 #endif

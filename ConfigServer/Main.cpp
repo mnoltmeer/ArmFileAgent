@@ -26,6 +26,7 @@ TRecpientCollectionThread *AddrBookChecker;
 ClientConfigManager *ConfigManager;
 String AppPath, LogFile, LogDir, DataDir;
 int ListenPort, HideWnd, FullScreen;
+TDate DateStart;
 
 extern TAddRecordForm *AddRecordForm;
 extern TAddGroupForm *AddGroupForm;
@@ -46,7 +47,9 @@ __fastcall TServerForm::TServerForm(TComponent* Owner)
   if (!DirectoryExists(LogDir))
 	CreateDir(LogDir);
 
-  LogFile = DateToStr(Date()) + ".log";
+  DateStart = Date().CurrentDate();
+
+  LogFile = DateToStr(DateStart) + ".log";
 
   ReadSettings();
 }
@@ -439,7 +442,7 @@ void __fastcall TServerForm::EditBookClick(TObject *Sender)
 void __fastcall TServerForm::ImportInAddrBookClick(TObject *Sender)
 {
   String old_mask = OpenCfgDialog->Filter;
-  OpenCfgDialog->Filter = "адресні книги (старі)|*.book|адресні книги (нові)|*.grp";
+  OpenCfgDialog->Filter = "адресні книги (нові)|*.grp|адресні книги (старі)|*.book";
 
   if (OpenCfgDialog->Execute())
 	{
@@ -520,7 +523,7 @@ void __fastcall TServerForm::ImportInAddrBookClick(TObject *Sender)
 void __fastcall TServerForm::ExportFromAddrBookClick(TObject *Sender)
 {
   String old_mask = SaveCfgDialog->Filter;
-  SaveCfgDialog->Filter = "адресні книги (старі)|*.book|адресні книги (нові)|*.grp";
+  SaveCfgDialog->Filter = "адресні книги (нові)|*.grp|адресні книги (старі)|*.book";
 
   if (SaveCfgDialog->Execute())
 	{
@@ -844,7 +847,7 @@ String __fastcall TServerForm::CreateClientFileList(const String &index, const S
 	   for (int i = 0; i < links.size(); i++)
 		  {
 			file = links[i]->FileName;
-			size = IntToStr(GetFileSize(file));
+			size = String(GetFileSize(file));
 
 			TFormatSettings settings;
 			settings.DateSeparator = '.';
@@ -1009,6 +1012,11 @@ void __fastcall TServerForm::StatusCheckerTimer(TObject *Sender)
 		  }
 	   __finally {delete ms;}
 
+	   if (Date().CurrentDate() > DateStart) //уточнюємо дату для логу
+		 {
+		   DateStart = Date().CurrentDate();
+		   LogFile = DateToStr(DateStart) + ".log";
+		 }
 	 }
   catch (Exception &e)
 	 {

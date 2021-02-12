@@ -342,8 +342,6 @@ object ServerForm: TServerForm
       Align = alClient
       ScrollBars = ssBoth
       TabOrder = 0
-      ExplicitTop = 35
-      ExplicitHeight = 548
     end
     object LogFilterPanel: TPanel
       Left = 0
@@ -428,7 +426,6 @@ object ServerForm: TServerForm
         StateImages = MenuImages
         TabOrder = 0
         OnClick = AddrListClick
-        ExplicitTop = 0
       end
       object AdrBookBtPanel: TPanel
         Left = 0
@@ -440,7 +437,6 @@ object ServerForm: TServerForm
         BevelKind = bkFlat
         BevelOuter = bvNone
         TabOrder = 1
-        ExplicitTop = 550
         object AddGroupBook: TBitBtn
           Left = 1
           Top = 1
@@ -1061,7 +1057,6 @@ object ServerForm: TServerForm
         TitleCaptions.Strings = (
           #1055#1072#1088#1072#1084#1077#1090#1088
           #1047#1085#1072#1095#1077#1085#1085#1103)
-        ExplicitTop = 27
         ColWidths = (
           140
           294)
@@ -1075,8 +1070,6 @@ object ServerForm: TServerForm
         BevelEdges = []
         BevelOuter = bvNone
         TabOrder = 1
-        ExplicitTop = 127
-        ExplicitHeight = 456
         object ConfigManagePanel: TPanel
           Left = 0
           Top = 0
@@ -1085,8 +1078,6 @@ object ServerForm: TServerForm
           Align = alTop
           BevelOuter = bvNone
           TabOrder = 0
-          ExplicitLeft = -6
-          ExplicitTop = -17
           object Label2: TLabel
             Left = 8
             Top = 8
@@ -1279,8 +1270,6 @@ object ServerForm: TServerForm
           Align = alClient
           ItemHeight = 13
           TabOrder = 1
-          ExplicitTop = 0
-          ExplicitHeight = 423
         end
       end
       object ControlHeaderPanel: TPanel
@@ -1477,12 +1466,14 @@ object ServerForm: TServerForm
     OnClick = SettingsClick
   end
   object OpenCfgDialog: TOpenDialog
-    Filter = #1082#1086#1085#1092#1110#1075#1091#1088#1072#1094#1110#1081#1085#1110' '#1092#1072#1081#1083#1080'|*.cfg|'#1089#1082#1088#1080#1087#1090#1080'|*.es;*.eli|'#1091#1089#1110' '#1092#1072#1081#1083#1080'|*.*'
+    Filter = 
+      #1082#1086#1085#1092#1110#1075#1091#1088#1072#1094#1110#1081#1085#1110' '#1092#1072#1081#1083#1080'|*.cfg|'#1089#1082#1088#1080#1087#1090#1080'|*.es;*.eli|'#1074#1080#1082#1086#1085#1072#1074#1095#1110' '#1092#1072#1081#1083#1080'|*.' +
+      'exe|'#1082#1086#1084#1072#1085#1076#1085#1110' '#1092#1072#1081#1083#1080'|*.bat;*.cmd|'#1073#1110#1073#1083#1110#1086#1090#1077#1082#1080'|*.dll|'#1091#1089#1110' '#1092#1072#1081#1083#1080'|*.*'
     Left = 880
     Top = 160
   end
   object SaveCfgDialog: TSaveDialog
-    Filter = #1082#1086#1085#1092#1110#1075#1091#1088#1072#1094#1110#1081#1085#1110' '#1092#1072#1081#1083#1080'|*.cfg;*.xml'
+    Filter = #1082#1086#1085#1092#1110#1075#1091#1088#1072#1094#1110#1081#1085#1110' '#1092#1072#1081#1083#1080'|*.cfg'
     Left = 792
     Top = 160
   end
