@@ -69,13 +69,12 @@ __published:	// IDE-managed Components
 	TBitBtn *RemoveConfig;
 	TBitBtn *AddConfig;
 	TTimer *StatusChecker;
-	TListBox *ConfigList;
 	TLabel *LbVersion;
 	TBitBtn *RefreshLog;
 	TLabel *Label2;
+	TListView *ConfigList;
 	void __fastcall FormClose(TObject *Sender, TCloseAction &Action);
 	void __fastcall AddrListClick(TObject *Sender);
-	void __fastcall FormShow(TObject *Sender);
 	void __fastcall EditBookClick(TObject *Sender);
 	void __fastcall AddToBookClick(TObject *Sender);
 	void __fastcall DeleteFromBookClick(TObject *Sender);
@@ -112,6 +111,8 @@ private:	// User declarations
 	String __fastcall CreateClientFileList(const String &index, const String &station);
     void __fastcall WriteSettings();
 	void __fastcall ReadSettings();
+	void __fastcall ExportAddrAndLinks(const String &file);
+	void __fastcall ImportAddrAndLinks(const String &file);
 
 public:		// User declarations
 	__fastcall TServerForm(TComponent* Owner);

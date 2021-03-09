@@ -1,10 +1,10 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
-        <ProjectGuid>{030DFA2F-1A28-4CD3-8512-47DD94F9FE8B}</ProjectGuid>
+        <ProjectGuid>{69FA6F76-2EF4-4241-A6C4-25D5C0293339}</ProjectGuid>
         <ProjectVersion>18.8</ProjectVersion>
         <FrameworkType>VCL</FrameworkType>
         <AppType>Application</AppType>
-        <MainSource>AFAConfigServer.cpp</MainSource>
+        <MainSource>fara.cpp</MainSource>
         <Base>True</Base>
         <Config Condition="'$(Config)'==''">Release</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
@@ -53,13 +53,13 @@
         <ProjectType>CppVCLApplication</ProjectType>
         <PackageImports>CloudService;FireDAC;FireDACCommon;FireDACCommonDriver;FireDACIBDriver;FireDACSqliteDriver;inet;RESTBackendComponents;RESTComponents;soapmidas;soaprtl;soapserver;$(PackageImports)</PackageImports>
         <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;Vcl;Vcl.Imaging;Vcl.Touch;Vcl.Samples;Vcl.Shell;$(DCC_Namespace)</DCC_Namespace>
-        <AllPackageLibs>rtl.lib;vcl.lib;IndySystem.lib;IndyCore.lib;vclimg.lib;IndyProtocols.lib</AllPackageLibs>
+        <AllPackageLibs>rtl.lib;vcl.lib;IndySystem.lib;IndyCore.lib;IndyProtocols.lib</AllPackageLibs>
         <_TCHARMapping>wchar_t</_TCHARMapping>
         <Multithreaded>true</Multithreaded>
         <Icon_MainIcon>$(BDS)\bin\cbuilder_PROJECTICON.ico</Icon_MainIcon>
         <UWP_CppLogo44>$(BDS)\bin\Artwork\Windows\UWP\cppreg_UwpDefault_44.png</UWP_CppLogo44>
         <UWP_CppLogo150>$(BDS)\bin\Artwork\Windows\UWP\cppreg_UwpDefault_150.png</UWP_CppLogo150>
-        <SanitizedProjectName>AFAConfigServer</SanitizedProjectName>
+        <SanitizedProjectName>fara</SanitizedProjectName>
         <IncludePath>..\..\work-functions\;$(IncludePath)</IncludePath>
         <ILINK_LibraryPath>..\..\work-functions\;$(ILINK_LibraryPath)</ILINK_LibraryPath>
         <Custom_Styles>&quot;Windows10 SlateGray|VCLSTYLE|$(BDSCOMMONDIR)\Styles\Windows10SlateGray.vsf&quot;</Custom_Styles>
@@ -102,7 +102,7 @@
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
-        <LinkPackageStatics>rtl.lib;vcl.lib;IndySystem.lib;IndyCore.lib;vclimg.lib;IndyProtocols.lib</LinkPackageStatics>
+        <LinkPackageStatics>rtl.lib;vcl.lib;IndySystem.lib;IndyCore.lib</LinkPackageStatics>
         <AppDPIAwarenessMode>PerMonitor</AppDPIAwarenessMode>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
@@ -115,45 +115,31 @@
     <PropertyGroup Condition="'$(Cfg_2_Win32)'!=''">
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
-        <LinkPackageStatics>rtl.lib;vcl.lib;IndySystem.lib;IndyCore.lib;vclimg.lib;IndyProtocols.lib</LinkPackageStatics>
+        <LinkPackageStatics>rtl.lib;vcl.lib;IndySystem.lib;IndyCore.lib;IndyProtocols.lib</LinkPackageStatics>
         <VerInfo_AutoIncVersion>true</VerInfo_AutoIncVersion>
-        <VerInfo_Keys>CompanyName=;FileDescription=Сервер конфігурацій;FileVersion=1.0.0.1;InternalName=;LegalCopyright=2020-2021 Максим Нольтмєєр (m.noltmeer@gmail.com);LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=АС &quot;Файловий агент АРМ ВЗ&quot;;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=;FileDescription=Консоль адміністрування;FileVersion=1.0.0.1;InternalName=;LegalCopyright=2021 Максим Нольтмєєр (m.noltmeer@gmail.com);LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=АС &quot;Файловий агент АРМ ВЗ&quot;;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <AppDPIAwarenessMode>PerMonitor</AppDPIAwarenessMode>
-        <Icon_MainIcon>AFAConfigServer_Icon.ico</Icon_MainIcon>
-        <UWP_CppLogo44>..\icos\server_115155.png</UWP_CppLogo44>
-        <UWP_CppLogo150>..\icos\server_115155.png</UWP_CppLogo150>
+        <Icon_MainIcon>icons8-spy-96.ico</Icon_MainIcon>
+        <UWP_CppLogo44>..\icos\icons8-spy-96.png</UWP_CppLogo44>
+        <UWP_CppLogo150>..\icos\icons8-spy-96.png</UWP_CppLogo150>
         <VerInfo_Build>1</VerInfo_Build>
     </PropertyGroup>
     <ItemGroup>
-        <CppCompile Include="AddGroup.cpp">
-            <Form>AddGroupForm</Form>
-            <FormType>dfm</FormType>
-            <DependentOn>AddGroup.h</DependentOn>
-            <BuildOrder>8</BuildOrder>
-        </CppCompile>
-        <CppCompile Include="AddRecord.cpp">
-            <Form>AddRecordForm</Form>
-            <FormType>dfm</FormType>
-            <DependentOn>AddRecord.h</DependentOn>
+        <CppCompile Include="ELICodeInsight.cpp">
+            <DependentOn>ELICodeInsight.h</DependentOn>
             <BuildOrder>7</BuildOrder>
         </CppCompile>
-        <CppCompile Include="AFAConfigServer.cpp">
+        <CppCompile Include="ELISourceHighlighter.cpp">
+            <DependentOn>ELISourceHighlighter.h</DependentOn>
+            <BuildOrder>8</BuildOrder>
+        </CppCompile>
+        <CppCompile Include="fara.cpp">
             <BuildOrder>0</BuildOrder>
         </CppCompile>
-        <PCHCompile Include="AFAConfigServerPCH1.h">
+        <PCHCompile Include="faraPCH1.h">
             <BuildOrder>1</BuildOrder>
             <PCH>true</PCH>
         </PCHCompile>
-        <CppCompile Include="ClientConfigLinks.cpp">
-            <DependentOn>ClientConfigLinks.h</DependentOn>
-            <BuildOrder>6</BuildOrder>
-        </CppCompile>
-        <CppCompile Include="Main.cpp">
-            <Form>ServerForm</Form>
-            <FormType>dfm</FormType>
-            <DependentOn>Main.h</DependentOn>
-            <BuildOrder>2</BuildOrder>
-        </CppCompile>
         <CppCompile Include="RecpOrganizer.cpp">
             <DependentOn>RecpOrganizer.h</DependentOn>
             <BuildOrder>4</BuildOrder>
@@ -162,20 +148,24 @@
             <DependentOn>RecpThread.h</DependentOn>
             <BuildOrder>5</BuildOrder>
         </CppCompile>
-        <CppCompile Include="Settings.cpp">
-            <Form>SettingsForm</Form>
+        <CppCompile Include="ScriptEditor.cpp">
+            <Form>ScriptForm</Form>
             <FormType>dfm</FormType>
-            <DependentOn>Settings.h</DependentOn>
-            <BuildOrder>9</BuildOrder>
+            <DependentOn>ScriptEditor.h</DependentOn>
+            <BuildOrder>6</BuildOrder>
+        </CppCompile>
+        <CppCompile Include="Unit.cpp">
+            <Form>AURAForm</Form>
+            <FormType>dfm</FormType>
+            <DependentOn>Unit.h</DependentOn>
+            <BuildOrder>2</BuildOrder>
         </CppCompile>
         <CppCompile Include="..\..\work-functions\MyFunc.cpp">
             <DependentOn>..\..\work-functions\MyFunc.h</DependentOn>
             <BuildOrder>4</BuildOrder>
         </CppCompile>
-        <FormResources Include="Main.dfm"/>
-        <FormResources Include="Settings.dfm"/>
-        <FormResources Include="AddGroup.dfm"/>
-        <FormResources Include="AddRecord.dfm"/>
+        <FormResources Include="ScriptEditor.dfm"/>
+        <FormResources Include="Unit.dfm"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>
@@ -194,7 +184,7 @@
         <BorlandProject>
             <CPlusPlusBuilder.Personality>
                 <Source>
-                    <Source Name="MainSource">AFAConfigServer.cpp</Source>
+                    <Source Name="MainSource">fara.cpp</Source>
                 </Source>
                 <ProjectProperties>
                     <ProjectProperties Name="AutoShowDeps">False</ProjectProperties>
@@ -233,12 +223,6 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName=".\Win32\Release\AFAConfigServer.exe" Configuration="Release" Class="ProjectOutput">
-                    <Platform Name="Win32">
-                        <RemoteName>AFAConfigServer.exe</RemoteName>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
                 <DeployFile Condition="'$(UsingDelphiRTL)'=='true'" LocalName="$(BDS)\bin\borlndmm.dll" Class="DependencyModule">
                     <Platform Name="Win32">
                         <Overwrite>true</Overwrite>
@@ -264,6 +248,12 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
+                <DeployFile LocalName=".\Win32\Release\fara.exe" Configuration="Release" Class="ProjectOutput">
+                    <Platform Name="Win32">
+                        <RemoteName>fara.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile Condition="'$(DynamicRTL)'=='true' And '$(Multithreaded)'=='true'" LocalName="$(BDS)\bin64\cc64260mt.dll" Class="DependencyModule">
                     <Platform Name="Win64">
                         <Overwrite>true</Overwrite>
@@ -279,15 +269,16 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName=".\Win32\Debug\AFAConfigServer.exe" Configuration="Debug" Class="ProjectOutput">
+                <DeployFile LocalName="..\icos\icons8-spy-96.png" Configuration="Release" Class="UWP_CppLogo44">
                     <Platform Name="Win32">
-                        <RemoteName>AFAConfigServer.exe</RemoteName>
+                        <RemoteDir>Assets\</RemoteDir>
+                        <RemoteName>Logo44x44.png</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName=".\Win32\Debug\AFAConfigServer.tds" Configuration="Debug" Class="DebugSymbols">
+                <DeployFile LocalName=".\Win32\Debug\fara.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
-                        <RemoteName>AFAConfigServer.tds</RemoteName>
+                        <RemoteName>fara.exe</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
@@ -313,13 +304,6 @@
                 </DeployFile>
                 <DeployFile Condition="'$(DynamicRTL)'=='true'" LocalName="$(BDS)\Redist\osx64\libcgcrtl.dylib" Class="DependencyModule">
                     <Platform Name="OSX64">
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
-                <DeployFile LocalName="..\icos\server_115155.png" Configuration="Debug" Class="UWP_CppLogo44">
-                    <Platform Name="Win32">
-                        <RemoteDir>Assets\</RemoteDir>
-                        <RemoteName>Logo44x44.png</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

@@ -791,8 +791,6 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 				  ASendConnList(AContext);
 				else if (list->Strings[1] == "thlist")
 				  ASendThreadList(AContext);
-				else if (list->Strings[1] == "file")
-				  ASendFile(list, AContext);
 				else if (list->Strings[1] == "version")
 				  ASendVersion(AContext);
 			  }
@@ -830,64 +828,6 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 				   }
 				__finally {delete ls;}
 			  }
-			else if (list->Strings[0] == "#get_new")
-			  {
-				//#get_new%<filename>%<cfg_data>
-				TStringList *ls = new TStringList();
-
-                try
-				   {
-					 StrToList(ls, list->Strings[2], "#");
-
-					 ls->SaveToFile(DataPath + "\\" + list->Strings[1], TEncoding::UTF8);
-
-					 TrayIcon->BalloonFlags = bfInfo;
-					 TrayIcon->BalloonHint = "Отримано новий конфіг";
-					 TrayIcon->ShowBalloonHint();
-                     ReadConfig();
-				   }
-				__finally {delete ls;}
-			  }
-			else if (list->Strings[0] == "#delcfg_file")
-			  {
-				//#delcfg_file%<filename>
-				Log->Add("FARA: отримано команду видалення конфігу, ім'я файлу: " + list->Strings[1]);
-				DeleteFile(DataPath + "\\" + list->Strings[1] + ".cfg");
-			  }
-			else if (list->Strings[0] == "#delcfg_name")
-			  {
-				//#delcfg_name%<caption>
-				Log->Add("FARA: отримано команду видалення конфігу, ім'я з'єднання: " + list->Strings[1]);
-
-				int ind = GetConnectionID(list->Strings[1]);
-
-				TExchangeConnect *srv = ConnManager->Find(ind);
-
-				if (srv)
-				  {
-					DeleteFile(srv->ConfigPath);
-					DestroyConnection(srv->ID);
-				  }
-				else
-				  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
-			  }
-			else if (list->Strings[0] == "#delcfg_id")
-			  {
-				//#delcfg_id%<id>
-				Log->Add("FARA: отримано команду видалення конфігу, ID з'єднання: " + list->Strings[1]);
-
-				int ind = list->Strings[1].ToInt();
-
-				TExchangeConnect *srv = ConnManager->Find(ind);
-
-				if (srv)
-				  {
-					DeleteFile(srv->ConfigPath);
-					DestroyConnection(srv->ID);
-				  }
-				else
-				  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
-              }
 			else if (list->Strings[0] == "#run")
 			  {
 				int ind = list->Strings[1].ToInt();
@@ -941,14 +881,7 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 			else if (list->Strings[0] == "#restart_guard")
 			  {
 				Log->Add("FARA: отримано команду перезапуску Guardian");
-				PostMessage(FindHandleByName(L"Guardian Менеджера обміну файлами АРМ ВЗ"), WM_QUIT, 0, 0);
-				Sleep(3000);
-				RunGuardian();
-			  }
-			else if (list->Strings[0] == "#reload_cfg")
-			  {
-				Log->Add("FARA: отримано команду перечитування конфігів");
-				ReadConfig();
+				RestartGuardian();
 			  }
 			else if (list->Strings[0] == "#exec_script")
 			  {
@@ -1062,12 +995,7 @@ void __fastcall TMainForm::UpdateRequest()
 {
   bool guard_running = GuardianRunning();
 
-  if (!guard_running && RunGuardian())
-	{
-	  Log->Add("Запит на оновлення");
-	  SendStartUpdateMessage();
-	}
-  else if (guard_running)
+  if (guard_running)
 	{
 	  Log->Add("Запит на оновлення");
 	  SendStartUpdateMessage();
@@ -1081,17 +1009,12 @@ void __fastcall TMainForm::SendStartUpdateMessage()
 {
   try
 	{
-	  DWORD guard_pid = GetProcessByExeName(L"AFAGuard.exe");
-
-	  if (!guard_pid)
-		throw new Exception("Процес Guardian не знайдено");
-
-	  HWND guard_handle = FindHandleByPID(guard_pid);
+	  HWND guard_handle = FindHandleByName(L"ArmAgent Guardian");
 
 	  if (!guard_handle)
 		throw new Exception("Не вдалося отримати хендл вікна Guardian");
-
-	  PostMessage(guard_handle, WM_KEYDOWN, VK_RETURN, NULL);
+	  else
+	    PostMessage(guard_handle, WM_KEYDOWN, VK_RETURN, NULL);
 	}
   catch (Exception &e)
 	{
@@ -1205,12 +1128,6 @@ void __fastcall TMainForm::StartApplication()
 //щоб зупиняти Менеджер, коли користувач виходить з обліковки
 	   if (!WTSRegisterSessionNotification(this->Handle, NOTIFY_FOR_THIS_SESSION))
 		 throw new Exception("WTSRegisterSessionNotification() fail: " + IntToStr((int)GetLastError()));
-
-	   if (!GuardianRunning())
-		 {
-		   if (RunGuardian() < 0)
-			 Log->Add("Помилка під час запуску Guardian");
-		 }
 
 	   LbStatus->Caption = "Робота";
 	   LbStatus->Font->Color = clLime;
@@ -2051,7 +1968,7 @@ void __fastcall TMainForm::ShutdownManager()
 
 void __fastcall TMainForm::ShutdownGuardian()
 {
-  PostMessage(FindHandleByName(L"Guardian Файлового агенту АРМ ВЗ"), WM_QUIT, 0, 0);
+  PostMessage(FindHandleByName(L"ArmAgent Guardian"), WM_QUIT, 0, 0);
 }
 //---------------------------------------------------------------------------
 
@@ -2063,7 +1980,7 @@ int __fastcall TMainForm::StartGuardian()
 
 int __fastcall TMainForm::RestartGuardian()
 {
-  PostMessage(FindHandleByName(L"Guardian Файлового агенту АРМ ВЗ"), WM_QUIT, 0, 0);
+  PostMessage(FindHandleByName(L"ArmAgent Guardian"), WM_QUIT, 0, 0);
 
   Sleep(1000);
 

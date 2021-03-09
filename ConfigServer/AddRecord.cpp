@@ -23,7 +23,6 @@ extern TServerForm *ServerForm;
 __fastcall TAddRecordForm::TAddRecordForm(TComponent* Owner)
 	: TForm(Owner)
 {
-  Parent = ServerForm;
 }
 //---------------------------------------------------------------------------
 

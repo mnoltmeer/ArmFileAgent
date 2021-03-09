@@ -21,7 +21,6 @@ extern TServerForm *ServerForm;
 __fastcall TAddGroupForm::TAddGroupForm(TComponent* Owner)
 	: TForm(Owner)
 {
-  Parent = ServerForm;
 }
 //---------------------------------------------------------------------------
 

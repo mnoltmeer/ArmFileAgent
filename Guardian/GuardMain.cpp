@@ -44,7 +44,10 @@ __fastcall TGuardian::TGuardian(TComponent* Owner)
 
 void __fastcall TGuardian::FormCreate(TObject *Sender)
 {
-  //WindowState = wsMinimized;
+  WindowState = wsMinimized;
+
+  if (FileExists(LogPath + "\\" + LogName))
+	Log->LoadFromFile(LogPath + "\\" + LogName);
 
   Log->Add("Початок роботи");
 

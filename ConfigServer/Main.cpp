@@ -24,7 +24,7 @@ extern String UsedAppLogDir; //вказуємо директорію для логування для функцій з M
 TRecpientItemCollection *AddrBook;
 TRecpientCollectionThread *AddrBookChecker;
 ClientConfigManager *ConfigManager;
-String AppPath, LogFile, LogDir, DataDir;
+String LogFile, LogDir, DataDir;
 int ListenPort, HideWnd, FullScreen;
 TDate DateStart;
 
@@ -35,23 +35,25 @@ extern TAddGroupForm *AddGroupForm;
 __fastcall TServerForm::TServerForm(TComponent* Owner)
 	: TForm(Owner)
 {
-  UsedAppLogDir = "AFAConfigServer\\Log";
+  try
+	 {
+	   UsedAppLogDir = "AFAConfigServer\\Log";
+	   DataDir = GetEnvironmentVariable("USERPROFILE") + "\\Documents\\AFAConfigServer";
+	   LogDir = DataDir + "\\Log";
 
-  AppPath = Application->ExeName;
-  int pos = AppPath.LastDelimiter("\\");
-  AppPath.Delete(pos, AppPath.Length() - (pos - 1));
+	   if (!DirectoryExists(LogDir))
+		 CreateDir(LogDir);
 
-  DataDir = GetEnvironmentVariable("USERPROFILE") + "\\Documents\\AFAConfigServer";
-  LogDir = DataDir + "\\Log";
+	   DateStart = Date().CurrentDate();
 
-  if (!DirectoryExists(LogDir))
-	CreateDir(LogDir);
+	   LogFile = DateToStr(DateStart) + ".log";
 
-  DateStart = Date().CurrentDate();
-
-  LogFile = DateToStr(DateStart) + ".log";
-
-  ReadSettings();
+	   ReadSettings();
+	 }
+  catch (Exception &e)
+	 {
+	   WriteLog(e.ToString());
+	 }
 }
 //---------------------------------------------------------------------------
 
@@ -80,7 +82,10 @@ void __fastcall TServerForm::FormCreate(TObject *Sender)
 	   AddrBook = new TRecpientItemCollection(DataDir + "\\hosts.grp");
 
 	   if (!AddrBook->FindGroup("public"))
-		 AddrBook->Add(0, AddrList->Items->Add(AddrList->Selected, "public"), "public");
+		 {
+		   AddrBook->Add(0, AddrList->Items->Add(AddrList->Selected, "public"), "public");
+           AddrBook->Save();
+		 }
 
 	   AddrBook->CreateSortedTree(AddrList);
 
@@ -105,30 +110,31 @@ void __fastcall TServerForm::FormCreate(TObject *Sender)
 }
 //---------------------------------------------------------------------------
 
-void __fastcall TServerForm::FormShow(TObject *Sender)
-{
-  //
-}
-//---------------------------------------------------------------------------
-
 void __fastcall TServerForm::FormClose(TObject *Sender, TCloseAction &Action)
 {
-  WriteSettings();
+  try
+	 {
+	   WriteSettings();
 
-  StatusChecker->Enabled = false;
+	   StatusChecker->Enabled = false;
 
-  StopServer();
+	   StopServer();
 
-  AddrBookChecker->Terminate();
+	   AddrBookChecker->Terminate();
 
-  while (!AddrBookChecker->Finished)
-	Sleep(100);
+	   while (!AddrBookChecker->Finished)
+		 Sleep(100);
 
-  delete AddrBookChecker;
-  delete AddrBook;
-  delete ConfigManager;
+	   delete AddrBookChecker;
+	   delete AddrBook;
+	   delete ConfigManager;
 
-  WriteLog("Кінець роботи");
+	   WriteLog("Кінець роботи");
+	 }
+  catch (Exception &e)
+	 {
+	   WriteLog(e.ToString());
+	 }
 }
 //---------------------------------------------------------------------------
 
@@ -146,8 +152,28 @@ void __fastcall TServerForm::AddrListClick(TObject *Sender)
 			  {
 				ConfigList->Clear();
 
+				String file_sz, file_dt;
+				unsigned int sz;
+
 				for (int i = 0; i < links->Count(); i++)
-				   ConfigList->Items->Add(links->Links[i]->FileName);
+				   {
+                     sz = static_cast<unsigned int>(GetFileSize(links->Links[i]->FileName));
+
+					 if (sz < 1024)
+					   file_sz = String(sz) + " B";
+					 else if ((sz >= 1024) && (sz < (10 * 1024 * 1024)))
+					   file_sz = String(sz / 1024) + " KB";
+					 else
+					   file_sz = String(sz / (1024 * 1024)) + " MB";
+
+					 file_dt = GetFormattedDate(GetFileDateTime(links->Links[i]->FileName), '.', ':', "dd.mm.yyy", "hh:nn:ss");
+
+					 TListItem * li = ConfigList->Items->Add();
+
+					 li->Caption = links->Links[i]->FileName;
+					 li->SubItems->Add(file_sz);
+					 li->SubItems->Add(file_dt);
+				   }
 			  }
 		   __finally{delete links;}
 		 }
@@ -160,8 +186,28 @@ void __fastcall TServerForm::AddrListClick(TObject *Sender)
 			  {
 				ConfigList->Clear();
 
+				String file_sz, file_dt;
+				unsigned int sz;
+
 				for (int i = 0; i < links->Count(); i++)
-				   ConfigList->Items->Add(links->Links[i]->FileName);
+				   {
+					 sz = static_cast<unsigned int>(GetFileSize(links->Links[i]->FileName));
+
+					 if (sz < 1024)
+					   file_sz = String(sz) + " B";
+					 else if ((sz >= 1024) && (sz < (10 * 1024 * 1024)))
+					   file_sz = String(sz / 1024) + " KB";
+					 else
+					   file_sz = String(sz / (1024 * 1024)) + " MB";
+
+					 file_dt = GetFormattedDate(GetFileDateTime(links->Links[i]->FileName), '.', ':', "dd.mm.yyy", "hh:nn:ss");
+
+					 TListItem * li = ConfigList->Items->Add();
+
+					 li->Caption = links->Links[i]->FileName;
+					 li->SubItems->Add(file_sz);
+					 li->SubItems->Add(file_dt);
+				   }
 			  }
 		   __finally{delete links;}
 
@@ -353,6 +399,8 @@ void __fastcall TServerForm::AddToBookClick(TObject *Sender)
 	 {
 	   AddRecordForm->Caption = "Створення запису";
 	   AddRecordForm->Show();
+	   AddRecordForm->Left = Left + ClientWidth / 2 - AddRecordForm->ClientWidth / 2;
+	   AddRecordForm->Top = Top + ClientHeight / 2 - AddRecordForm->ClientHeight / 2;
 	 }
   catch (Exception &e)
 	 {
@@ -367,6 +415,8 @@ void __fastcall TServerForm::AddGroupBookClick(TObject *Sender)
 	 {
 	   AddGroupForm->Caption = "Створення групи";
 	   AddGroupForm->Show();
+	   AddGroupForm->Left = Left + ClientWidth / 2 - AddGroupForm->ClientWidth / 2;
+	   AddGroupForm->Top = Top + ClientHeight / 2 - AddGroupForm->ClientHeight / 2;
 	 }
   catch (Exception &e)
 	 {
@@ -383,9 +433,10 @@ void __fastcall TServerForm::DeleteFromBookClick(TObject *Sender)
 
 	   if (itm && !itm->ParentNodeID)
 		 {
-		   if (MessageDlg("Дійсно видалити групу записів?",
-						  mtConfirmation,
-						  TMsgDlgButtons() << mbYes << mbNo, 0) == mrYes)
+		   if (MessageBox(Application->Handle,
+						  L"Дійсно видалити групу записів?",
+						  L"Підтвердьте дію",
+						  MB_YESNO|MB_ICONWARNING) == mrYes)
 			 {
 			   RecipientItem *grp = AddrBook->FindGroup(AddrList->Selected);
 			   ConfigManager->RemoveLinks(grp->Name);
@@ -396,7 +447,7 @@ void __fastcall TServerForm::DeleteFromBookClick(TObject *Sender)
 			   AddrBookChecker->CollectionChanged = true;
 			 }
 		 }
-	   else if (MessageDlg("Видалити запис?", mtConfirmation, TMsgDlgButtons() << mbYes << mbNo, 0) == mrYes)
+	   else if (MessageBox(Application->Handle, L"Видалити запис?", L"Підтвердьте дію", MB_YESNO|MB_ICONWARNING) == mrYes)
 		 {
 		   int grp_id = itm->ParentNodeID;
 
@@ -426,6 +477,8 @@ void __fastcall TServerForm::EditBookClick(TObject *Sender)
 	  AddGroupForm->Name->Text = itm->Name;
 	  AddGroupForm->Caption = "Редагування групи";
 	  AddGroupForm->Show();
+      AddGroupForm->Left = Left + ClientWidth / 2 - AddGroupForm->ClientWidth / 2;
+	  AddGroupForm->Top = Top + ClientHeight / 2 - AddGroupForm->ClientHeight / 2;
 	}
   else if (itm && itm->ParentNodeID)
 	{
@@ -435,6 +488,8 @@ void __fastcall TServerForm::EditBookClick(TObject *Sender)
 	  AddRecordForm->Port->Text = itm->Port;
 
 	  AddRecordForm->Show();
+      AddRecordForm->Left = Left + ClientWidth / 2 - AddRecordForm->ClientWidth / 2;
+	  AddRecordForm->Top = Top + ClientHeight / 2 - AddRecordForm->ClientHeight / 2;
 	}
 }
 //---------------------------------------------------------------------------
@@ -442,7 +497,8 @@ void __fastcall TServerForm::EditBookClick(TObject *Sender)
 void __fastcall TServerForm::ImportInAddrBookClick(TObject *Sender)
 {
   String old_mask = OpenCfgDialog->Filter;
-  OpenCfgDialog->Filter = "адресні книги (нові)|*.grp|адресні книги (старі)|*.book";
+  OpenCfgDialog->FileName = "";
+  OpenCfgDialog->Filter = "адресна книга + файли|*.afl|адресні книги (нові)|*.grp|адресні книги (старі)|*.book";
 
   if (OpenCfgDialog->Execute())
 	{
@@ -452,7 +508,20 @@ void __fastcall TServerForm::ImportInAddrBookClick(TObject *Sender)
 		   int pos = file_ext.LastDelimiter("\\");
 		   file_ext.Delete(1, pos);
 		   pos = file_ext.LastDelimiter(".");
-		   file_ext.Delete(1, pos);
+
+           if (!pos)
+			 {
+			   if (OpenCfgDialog->FilterIndex == 3)
+				 file_ext = "book";
+			   else if (OpenCfgDialog->FilterIndex == 2)
+				 file_ext = "grp";
+			   else if (OpenCfgDialog->FilterIndex == 1)
+				 file_ext = "afl";
+
+			   OpenCfgDialog->FileName = OpenCfgDialog->FileName + "." + file_ext;
+			 }
+		   else
+			 file_ext.Delete(1, pos);
 
 		   if (file_ext == "book")
 			 {
@@ -508,6 +577,8 @@ void __fastcall TServerForm::ImportInAddrBookClick(TObject *Sender)
 				  }
 			   __finally{delete ImportBook;}
 			 }
+           else if (file_ext == "afl")
+			 ImportAddrAndLinks(OpenCfgDialog->FileName);
 		 }
 	  catch (Exception &e)
 		 {
@@ -523,7 +594,8 @@ void __fastcall TServerForm::ImportInAddrBookClick(TObject *Sender)
 void __fastcall TServerForm::ExportFromAddrBookClick(TObject *Sender)
 {
   String old_mask = SaveCfgDialog->Filter;
-  SaveCfgDialog->Filter = "адресні книги (нові)|*.grp|адресні книги (старі)|*.book";
+  SaveCfgDialog->FileName = "";
+  SaveCfgDialog->Filter = "адресна книга + файли|*.afl|адресні книги (нові)|*.grp|адресні книги (старі)|*.book";
 
   if (SaveCfgDialog->Execute())
 	{
@@ -536,15 +608,17 @@ void __fastcall TServerForm::ExportFromAddrBookClick(TObject *Sender)
 
 		   if (!pos)
 			 {
-			   if (SaveCfgDialog->FilterIndex == 1)
+			   if (SaveCfgDialog->FilterIndex == 3)
 				 file_ext = "book";
 			   else if (SaveCfgDialog->FilterIndex == 2)
 				 file_ext = "grp";
+			   else if (SaveCfgDialog->FilterIndex == 1)
+				 file_ext = "afl";
 
 			   SaveCfgDialog->FileName = SaveCfgDialog->FileName + "." + file_ext;
 			 }
 		   else
-		     file_ext.Delete(1, pos);
+			 file_ext.Delete(1, pos);
 
 		   if (file_ext == "book")
 			 {
@@ -563,6 +637,8 @@ void __fastcall TServerForm::ExportFromAddrBookClick(TObject *Sender)
 			 }
 		   else if (file_ext == "grp")
 			 AddrBook->SaveToFile(SaveCfgDialog->FileName);
+		   else if (file_ext == "afl")
+			 ExportAddrAndLinks(SaveCfgDialog->FileName);
 
            WriteLog("Експорт книги завершено");
 		 }
@@ -583,7 +659,7 @@ void __fastcall TServerForm::StartServer()
 	 {
 	   Listener->DefaultPort = ListenPort;
 	   Listener->Active = true;
-	   WriteLog("StartServer(): OK");
+	   WriteLog("Сервер запущено");
 
 	   SwServerOn->Show();
 	   SwServerOff->Hide();
@@ -593,7 +669,7 @@ void __fastcall TServerForm::StartServer()
 	   SwServerOn->Hide();
 	   SwServerOff->Show();
 
-	   WriteLog("StartServer(): " + e.ToString());
+	   WriteLog("Запуск серверу: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -603,7 +679,7 @@ void __fastcall TServerForm::StopServer()
   try
 	 {
 	   Listener->Active = false;
-	   WriteLog("StopServer(): OK");
+	   WriteLog("Сервер зупинено");
 
 	   SwServerOff->Show();
 	 }
@@ -611,7 +687,7 @@ void __fastcall TServerForm::StopServer()
 	 {
 	   SwServerOff->Show();
 
-	   WriteLog("StopServer(): " + e.ToString());
+	   WriteLog("Зупинка серверу: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -811,6 +887,18 @@ void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 				   }
 				__finally {delete fs;}
 			  }
+			else if (list->Strings[0] == "#getaddrbook")
+			  {
+				TFileStream *fs = new TFileStream(DataDir + "\\hosts.grp",
+												  fmOpenRead|fmShareDenyNone);
+
+				try
+				   {
+					 fs->Position = 0;
+					 AContext->Connection->IOHandler->Write(fs, fs->Size, true);
+				   }
+				__finally {delete fs;}
+			  }
 		  }
 	   catch (Exception &e)
 		  {
@@ -849,13 +937,7 @@ String __fastcall TServerForm::CreateClientFileList(const String &index, const S
 			file = links[i]->FileName;
 			size = String(GetFileSize(file));
 
-			TFormatSettings settings;
-			settings.DateSeparator = '.';
-			settings.ShortDateFormat = "dd.mm.yyy";
-			settings.TimeSeparator = ':';
-			settings.LongTimeFormat = "hh:nn:ss";
-
-			change = DateTimeToStr(GetFileDateTime(file), settings);
+			change = GetFormattedDate(GetFileDateTime(file), '.', ':', "dd.mm.yyy", "hh:nn:ss");
 
 			ver = GetVersionInString(file.c_str());
 
@@ -875,6 +957,109 @@ String __fastcall TServerForm::CreateClientFileList(const String &index, const S
 	 }
 
   return res;
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TServerForm::ExportAddrAndLinks(const String &file)
+{
+  try
+	 {
+	   StatusChecker->Enabled = false;
+       AddrBook->Save();
+	   ConfigManager->SaveToFile(DataDir + "\\config.links");
+
+	   TFileStream *result_file = new TFileStream(file, fmOpenWrite|fmCreate);
+
+	   try
+		  {
+			__int64 sz;
+			Byte *buf;
+
+			TFileStream *addr_file = new TFileStream(DataDir + "\\hosts.grp", fmOpenRead|fmShareDenyNone);
+
+			try
+			   {
+				 sz = addr_file->Size;
+
+				 buf = new Byte[sz];
+
+				 addr_file->Read(buf, sz);
+				 result_file->Position += result_file->Write(&sz, sizeof(__int64));
+				 result_file->Position += result_file->Write(buf, sz);
+			   }
+			__finally {delete addr_file; delete[] buf;}
+
+			TFileStream *links_file = new TFileStream(DataDir + "\\config.links", fmOpenRead|fmShareDenyNone);
+
+			try
+			   {
+				 sz = links_file->Size;
+
+				 buf = new Byte[sz];
+
+				 addr_file->Read(buf, sz);
+				 result_file->Position += result_file->Write(&sz, sizeof(sz));
+				 result_file->Position += result_file->Write(buf, sz);
+			   }
+			__finally {delete links_file; delete[] buf;}
+		  }
+	   __finally {delete result_file; StatusChecker->Enabled = true;}
+	 }
+  catch (Exception &e)
+	 {
+	   WriteLog("ExportAddrAndLinks: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TServerForm::ImportAddrAndLinks(const String &file)
+{
+  try
+	 {
+	   StatusChecker->Enabled = false;
+
+	   TFileStream *result_file = new TFileStream(file, fmOpenRead|fmShareDenyNone);
+
+	   try
+		  {
+			__int64 sz;
+			Byte *buf;
+
+			TFileStream *addr_file = new TFileStream(DataDir + "\\hosts.grp", fmOpenWrite|fmCreate);
+
+			try
+			   {
+				 result_file->Position += result_file->Read(&sz, sizeof(__int64));
+
+				 buf = new Byte[sz];
+
+				 result_file->Position += result_file->Read(buf, sz);
+                 addr_file->Write(buf, sz);
+			   }
+			__finally {delete addr_file; delete[] buf;}
+
+			TFileStream *links_file = new TFileStream(DataDir + "\\config.links", fmOpenWrite|fmCreate);
+
+			try
+			   {
+				 result_file->Position += result_file->Read(&sz, sizeof(__int64));
+
+				 buf = new Byte[sz];
+
+				 result_file->Position += result_file->Read(buf, sz);
+				 links_file->Write(buf, sz);
+			   }
+			__finally {delete links_file; delete[] buf;}
+
+			AddrBook->LoadFromFile(DataDir + "\\hosts.grp");
+			ConfigManager->LoadFromFile(DataDir + "\\config.links");
+		  }
+	   __finally {delete result_file; StatusChecker->Enabled = true;}
+	 }
+  catch (Exception &e)
+	 {
+	   WriteLog("ImportAddrAndLinks: " + e.ToString());
+	 }
 }
 //---------------------------------------------------------------------------
 
@@ -943,7 +1128,10 @@ void __fastcall TServerForm::RemoveConfigClick(TObject *Sender)
 {
   try
 	 {
-	   String file = ConfigList->Items->Strings[ConfigList->ItemIndex];
+	   if (!ConfigList->Selected)
+		 return;
+
+	   String file = ConfigList->Items->Item[ConfigList->Selected->Index]->Caption;
 
 	   RecipientItem *itm = AddrBook->Find(AddrList->Selected);
 

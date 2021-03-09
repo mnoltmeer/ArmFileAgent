@@ -40,3 +40,10 @@
 /Guardian/__astcache
 /Guardian/__recovery
 /Guardian/__history
+/FARA/Win32
+/FARA/icos
+/FARA/__recovery
+/FARA/__history
+/FARA/*.res
+/FARA/*.optset
+/FARA/*.local
