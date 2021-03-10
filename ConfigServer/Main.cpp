@@ -101,7 +101,7 @@ void __fastcall TServerForm::FormCreate(TObject *Sender)
 
 	   StartServer();
 
-       StatusChecker->Interval = ActivityCheckInterval * 10000;
+       StatusChecker->Interval = ActivityCheckInterval * 60000;
        StatusChecker->Enabled = true;
 	 }
   catch (Exception &e)
