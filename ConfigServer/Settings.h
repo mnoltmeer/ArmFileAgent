@@ -19,6 +19,9 @@ __published:	// IDE-managed Components
 	TBitBtn *Apply;
 	TBitBtn *Cancel;
 	TCheckBox *EnableAutoStart;
+	TLabel *Label1;
+	TLabel *Label2;
+	TEdit *ActRequestInterval;
 	void __fastcall FormShow(TObject *Sender);
 	void __fastcall CancelClick(TObject *Sender);
 	void __fastcall ApplyClick(TObject *Sender);

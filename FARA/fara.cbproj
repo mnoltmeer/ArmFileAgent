@@ -119,10 +119,11 @@
         <VerInfo_AutoIncVersion>true</VerInfo_AutoIncVersion>
         <VerInfo_Keys>CompanyName=;FileDescription=Консоль адміністрування;FileVersion=1.0.0.1;InternalName=;LegalCopyright=2021 Максим Нольтмєєр (m.noltmeer@gmail.com);LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=АС &quot;Файловий агент АРМ ВЗ&quot;;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <AppDPIAwarenessMode>PerMonitor</AppDPIAwarenessMode>
-        <Icon_MainIcon>icons8-spy-96.ico</Icon_MainIcon>
-        <UWP_CppLogo44>..\icos\icons8-spy-96.png</UWP_CppLogo44>
-        <UWP_CppLogo150>..\icos\icons8-spy-96.png</UWP_CppLogo150>
+        <Icon_MainIcon>ic_remove_red_eye_128_28747.ico</Icon_MainIcon>
+        <UWP_CppLogo44>..\icos\ic_remove_red_eye_128_28747.png</UWP_CppLogo44>
+        <UWP_CppLogo150>..\icos\ic_remove_red_eye_128_28747.png</UWP_CppLogo150>
         <VerInfo_Build>1</VerInfo_Build>
+        <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
     <ItemGroup>
         <CppCompile Include="ELICodeInsight.cpp">
@@ -269,13 +270,6 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="..\icos\icons8-spy-96.png" Configuration="Release" Class="UWP_CppLogo44">
-                    <Platform Name="Win32">
-                        <RemoteDir>Assets\</RemoteDir>
-                        <RemoteName>Logo44x44.png</RemoteName>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
                 <DeployFile LocalName=".\Win32\Debug\fara.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>fara.exe</RemoteName>
@@ -294,6 +288,13 @@
                 </DeployFile>
                 <DeployFile Condition="'$(DynamicRTL)'=='true' And '$(Multithreaded)'!='true'" LocalName="$(BDS)\bin\cc32250.dll" Class="DependencyModule">
                     <Platform Name="Win32">
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="..\icos\ic_remove_red_eye_128_28747.png" Configuration="Release" Class="UWP_CppLogo44">
+                    <Platform Name="Win32">
+                        <RemoteDir>Assets\</RemoteDir>
+                        <RemoteName>Logo44x44.png</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

@@ -4,7 +4,7 @@ object SettingsForm: TSettingsForm
   BorderIcons = [biSystemMenu]
   BorderStyle = bsSingle
   Caption = #1053#1072#1083#1072#1096#1090#1091#1074#1072#1085#1085#1103' '#1089#1077#1088#1074#1077#1088#1091
-  ClientHeight = 180
+  ClientHeight = 230
   ClientWidth = 258
   Color = clBtnFace
   DoubleBuffered = True
@@ -320,6 +320,20 @@ object SettingsForm: TSettingsForm
   OnShow = FormShow
   PixelsPerInch = 96
   TextHeight = 13
+  object Label1: TLabel
+    Left = 8
+    Top = 64
+    Width = 123
+    Height = 13
+    Caption = #1054#1087#1080#1090#1091#1074#1072#1090#1080' '#1089#1090#1072#1085#1094#1110#1111' '#1082#1086#1078#1085#1110
+  end
+  object Label2: TLabel
+    Left = 219
+    Top = 64
+    Width = 16
+    Height = 13
+    Caption = #1093#1074'.'
+  end
   object ServicePort: TLabeledEdit
     Left = 8
     Top = 24
@@ -332,7 +346,7 @@ object SettingsForm: TSettingsForm
   end
   object StartMinimised: TCheckBox
     Left = 8
-    Top = 99
+    Top = 139
     Width = 201
     Height = 17
     Caption = #1047#1072#1087#1091#1089#1082#1072#1090#1080' '#1091' '#1079#1075#1086#1088#1085#1091#1090#1086#1084#1091' '#1074#1080#1075#1083#1103#1076#1110
@@ -340,7 +354,7 @@ object SettingsForm: TSettingsForm
   end
   object Apply: TBitBtn
     Left = 8
-    Top = 141
+    Top = 181
     Width = 90
     Height = 25
     Caption = #1047#1073#1077#1088#1077#1075#1090#1080
@@ -351,7 +365,7 @@ object SettingsForm: TSettingsForm
   end
   object Cancel: TBitBtn
     Left = 147
-    Top = 141
+    Top = 181
     Width = 97
     Height = 25
     Caption = #1057#1082#1072#1089#1091#1074#1072#1090#1080
@@ -362,10 +376,17 @@ object SettingsForm: TSettingsForm
   end
   object EnableAutoStart: TCheckBox
     Left = 8
-    Top = 64
+    Top = 104
     Width = 201
     Height = 17
     Caption = #1040#1074#1090#1086#1079#1072#1087#1091#1089#1082' '#1087#1088#1080' '#1074#1093#1086#1076#1110' '#1082#1086#1088#1080#1089#1090#1091#1074#1072#1095#1072
     TabOrder = 4
+  end
+  object ActRequestInterval: TEdit
+    Left = 137
+    Top = 61
+    Width = 72
+    Height = 21
+    TabOrder = 5
   end
 end

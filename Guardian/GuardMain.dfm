@@ -2,7 +2,7 @@ object Guardian: TGuardian
   Left = 0
   Top = 0
   Caption = 'ArmAgent Guardian'
-  ClientHeight = 120
+  ClientHeight = 65
   ClientWidth = 261
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET

@@ -25,7 +25,7 @@ TRecpientItemCollection *AddrBook;
 TRecpientCollectionThread *AddrBookChecker;
 ClientConfigManager *ConfigManager;
 String LogFile, LogDir, DataDir;
-int ListenPort, HideWnd, FullScreen;
+int ListenPort, HideWnd, FullScreen, ActivityCheckInterval;
 TDate DateStart;
 
 extern TAddRecordForm *AddRecordForm;
@@ -101,6 +101,7 @@ void __fastcall TServerForm::FormCreate(TObject *Sender)
 
 	   StartServer();
 
+       StatusChecker->Interval = ActivityCheckInterval * 10000;
        StatusChecker->Enabled = true;
 	 }
   catch (Exception &e)
@@ -696,7 +697,7 @@ void __fastcall TServerForm::ReadSettings()
 {
   try
 	 {
-       TRegistry *reg = new TRegistry();
+       TRegistry *reg = new TRegistry(KEY_READ);
 
 	   try
 		  {
@@ -706,25 +707,23 @@ void __fastcall TServerForm::ReadSettings()
 			  {
 				if (reg->ValueExists("FullScreen"))
 				  FullScreen = reg->ReadBool("FullScreen");
+				else
+                  FullScreen = false;
 
 				if (reg->ValueExists("HideWindow"))
 				  HideWnd = reg->ReadBool("HideWindow");
+				else
+				  HideWnd = false;
 
 				if (reg->ValueExists("Height"))
 				  ClientHeight = reg->ReadInteger("Height");
 				else
-				  {
-					ClientHeight = 600;
-					reg->WriteInteger("Height", 600);
-				  }
+				  ClientHeight = 600;
 
 				if (reg->ValueExists("Width"))
 				  ClientWidth = reg->ReadInteger("Width");
 				else
-				  {
-					ClientWidth = 800;
-					reg->WriteInteger("Width", 800);
-				  }
+				  ClientWidth = 800;
 
 				reg->CloseKey();
 			  }
@@ -734,9 +733,14 @@ void __fastcall TServerForm::ReadSettings()
 				if (reg->ValueExists("ListenPort"))
 				  ListenPort = reg->ReadInteger("ListenPort");
 				else
-                  reg->WriteInteger("ListenPort", 7896);
+				  reg->WriteInteger("ListenPort", 7896);
 
-                reg->CloseKey();
+				if (reg->ValueExists("ActivityCheckInterval"))
+				  ActivityCheckInterval = reg->ReadInteger("ActivityCheckInterval");
+				else
+				  ActivityCheckInterval = 1;
+
+				reg->CloseKey();
 			  }
 		  }
 	   __finally {delete reg;}
@@ -780,6 +784,7 @@ void __fastcall TServerForm::WriteSettings()
 			if (reg->OpenKey("Software\\AFAConfigServer\\Params", false))
 			  {
 				reg->WriteInteger("ListenPort", ListenPort);
+				reg->WriteInteger("ActivityCheckInterval", ActivityCheckInterval);
 
 				reg->CloseKey();
 			  }

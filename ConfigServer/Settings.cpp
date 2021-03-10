@@ -12,7 +12,7 @@
 TSettingsForm *SettingsForm;
 
 extern TServerForm *ServerForm;
-extern int ListenPort;
+extern int ListenPort, ActivityCheckInterval;
 //---------------------------------------------------------------------------
 __fastcall TSettingsForm::TSettingsForm(TComponent* Owner)
 	: TForm(Owner)
@@ -36,7 +36,7 @@ void __fastcall TSettingsForm::ReadSettings()
 {
   try
 	 {
-	   TRegistry *reg = new TRegistry();
+	   TRegistry *reg = new TRegistry(KEY_READ);
 
 	   try
 		  {
@@ -51,6 +51,7 @@ void __fastcall TSettingsForm::ReadSettings()
 			  }
 
 			ServicePort->Text = IntToStr(ListenPort);
+			ActRequestInterval->Text = IntToStr(ActivityCheckInterval);
 		  }
 	   __finally {delete reg;}
 
@@ -87,6 +88,11 @@ void __fastcall TSettingsForm::WriteSettings()
 		 AddAppAutoStart("AFAConfigServer", Application->ExeName, FOR_CURRENT_USER);
 	   else
 		 RemoveAppAutoStart("AFAConfigServer", FOR_CURRENT_USER);
+
+	   ActivityCheckInterval = ActRequestInterval->Text.ToInt();
+	   ServerForm->StatusChecker->Enabled = false;
+	   ServerForm->StatusChecker->Interval = ActivityCheckInterval * 10000;
+	   ServerForm->StatusChecker->Enabled = true;
 	 }
   catch (Exception &e)
 	 {
