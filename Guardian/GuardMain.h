@@ -17,9 +17,7 @@ Copyright 2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 class TGuardian : public TForm
 {
 __published:	// IDE-managed Components
-	TApplicationEvents *ApplicationEvents;
 	TTimer *SaveLogTimer;
-	void __fastcall ApplicationEventsMessage(tagMSG &Msg, bool &Handled);
 	void __fastcall SaveLogTimerTimer(TObject *Sender);
 	void __fastcall FormCreate(TObject *Sender);
 	void __fastcall FormClose(TObject *Sender, TCloseAction &Action);
@@ -29,6 +27,8 @@ private:	// User declarations
 
 public:		// User declarations
 	__fastcall TGuardian(TComponent* Owner);
+
+    void __fastcall WndProc(Messages::TMessage& Msg);
 };
 //---------------------------------------------------------------------------
 extern PACKAGE TGuardian *Guardian;

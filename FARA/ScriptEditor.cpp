@@ -382,7 +382,7 @@ void __fastcall TScriptForm::SendScriptClick(TObject *Sender)
 							  AURAForm->Host->Text + ":" +
 							  AURAForm->Port->Text);
 
-	   TStringStream *ms = new TStringStream("#exec_script%" + Editor->Text, TEncoding::UTF8, true);
+	   TStringStream *ms = new TStringStream(Editor->Text, TEncoding::UTF8, true);
 
 	   try
 		  {

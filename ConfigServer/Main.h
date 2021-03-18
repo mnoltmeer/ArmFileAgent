@@ -117,7 +117,10 @@ private:	// User declarations
 public:		// User declarations
 	__fastcall TServerForm(TComponent* Owner);
 
-    void __fastcall WriteLog(String record);
+	void __fastcall WriteLog(String record);
+    void __fastcall ShowClientInfo(const String &station, const String &index,
+								   const String &host, const String &port);
+    void __fastcall ClearClientInfo();
 };
 //---------------------------------------------------------------------------
 extern PACKAGE TServerForm *ServerForm;

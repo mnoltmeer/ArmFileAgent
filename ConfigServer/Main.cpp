@@ -41,6 +41,9 @@ __fastcall TServerForm::TServerForm(TComponent* Owner)
 	   DataDir = GetEnvironmentVariable("USERPROFILE") + "\\Documents\\AFAConfigServer";
 	   LogDir = DataDir + "\\Log";
 
+	   if (!DirectoryExists(DataDir))
+		 CreateDir(DataDir);
+
 	   if (!DirectoryExists(LogDir))
 		 CreateDir(LogDir);
 
@@ -151,6 +154,8 @@ void __fastcall TServerForm::AddrListClick(TObject *Sender)
 
 		   try
 			  {
+				ClearClientInfo();
+
 				ConfigList->Clear();
 
 				String file_sz, file_dt;
@@ -212,10 +217,7 @@ void __fastcall TServerForm::AddrListClick(TObject *Sender)
 			  }
 		   __finally{delete links;}
 
-		   ItemParams->Cells[1][1] = grp->Name;
-		   ItemParams->Cells[1][2] = itm->Name;
-		   ItemParams->Cells[1][3] = itm->Host;
-		   ItemParams->Cells[1][4] = itm->Port;
+		   ShowClientInfo(itm->Name, grp->Name, itm->Host, itm->Port);
 		 }
 	   else
 		 throw new Exception("Невідомий ID");
@@ -858,7 +860,7 @@ void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 					grp = AddrBook->FindGroup(grp_id);
 				  }
 
-				RecipientItem *itm = AddrBook->FindRecipientInGroup(grp->ID, station, host, port);
+				RecipientItem *itm = AddrBook->FindRecipientInGroup(grp->ID, station);
 
 				if (!itm)
 				  {
@@ -871,6 +873,9 @@ void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 					itm->Host = host;
 					itm->Port = port;
 					AddrBookChecker->CollectionChanged = true;
+
+					if (itm->Node == AddrList->Selected)
+					  ShowClientInfo(itm->Name, grp->Name, itm->Host, itm->Port);
 				  }
 
                 itm->Node->StateIndex = 3;
@@ -883,7 +888,7 @@ void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 			  }
 			else if (list->Strings[0] == "#request")
 			  {
-				TFileStream *fs = new TFileStream(list->Strings[1], fmOpenRead);
+				TFileStream *fs = new TFileStream(list->Strings[1], fmOpenRead|fmShareDenyNone);
 
 				try
 				   {
@@ -1068,6 +1073,25 @@ void __fastcall TServerForm::ImportAddrAndLinks(const String &file)
 }
 //---------------------------------------------------------------------------
 
+void __fastcall TServerForm::ShowClientInfo(const String &station, const String &index,
+							   				const String &host, const String &port)
+{
+  ItemParams->Cells[1][1] = index;
+  ItemParams->Cells[1][2] = station;
+  ItemParams->Cells[1][3] = host;
+  ItemParams->Cells[1][4] = port;
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TServerForm::ClearClientInfo()
+{
+  ItemParams->Cells[1][1] = "";
+  ItemParams->Cells[1][2] = "";
+  ItemParams->Cells[1][3] = "";
+  ItemParams->Cells[1][4] = "";
+}
+//---------------------------------------------------------------------------
+
 void __fastcall TServerForm::ListenerConnect(TIdContext *AContext)
 {
   //клієнт під'єднався
@@ -1085,6 +1109,8 @@ void __fastcall TServerForm::ListenerDisconnect(TIdContext *AContext)
 void __fastcall TServerForm::SettingsClick(TObject *Sender)
 {
   SettingsForm->Show();
+  SettingsForm->Left = Left + ClientWidth / 2 - SettingsForm->ClientWidth / 2;
+  SettingsForm->Top = Top + ClientHeight / 2 - SettingsForm->ClientHeight / 2;
 }
 //---------------------------------------------------------------------------
 

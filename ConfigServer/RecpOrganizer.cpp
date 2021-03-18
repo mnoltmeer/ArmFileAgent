@@ -654,6 +654,27 @@ RecipientItem *TRecpientItemCollection::FindRecipientInGroup(int group_id,
 }
 //---------------------------------------------------------------------------
 
+RecipientItem *TRecpientItemCollection::FindRecipientInGroup(int group_id, const String &name)
+{
+  RecipientItem *res = NULL;
+
+  std::vector<RecipientItem*> itms;
+
+  SelectRecipientsInGroup(&itms, group_id);
+
+  for (int i = 0; i < itms.size(); i++)
+	 {
+	   if (itms[i]->Name == name)
+		 {
+		   res = itms[i];
+		   break;
+         }
+	 }
+
+  return res;
+}
+//---------------------------------------------------------------------------
+
 void TRecpientItemCollection::Clear()
 {
   int ind = recp_items.size() - 1;

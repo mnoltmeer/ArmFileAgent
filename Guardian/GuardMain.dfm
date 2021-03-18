@@ -1,9 +1,11 @@
 object Guardian: TGuardian
   Left = 0
   Top = 0
+  BorderIcons = [biSystemMenu]
+  BorderStyle = bsSingle
   Caption = 'ArmAgent Guardian'
-  ClientHeight = 65
-  ClientWidth = 261
+  ClientHeight = 45
+  ClientWidth = 271
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -318,16 +320,10 @@ object Guardian: TGuardian
   OnCreate = FormCreate
   PixelsPerInch = 96
   TextHeight = 13
-  object ApplicationEvents: TApplicationEvents
-    OnMessage = ApplicationEventsMessage
-    Left = 32
-    Top = 8
-  end
   object SaveLogTimer: TTimer
     Enabled = False
     Interval = 120000
     OnTimer = SaveLogTimerTimer
-    Left = 112
-    Top = 8
+    Left = 72
   end
 end

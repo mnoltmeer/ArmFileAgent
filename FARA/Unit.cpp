@@ -641,6 +641,21 @@ void __fastcall TAURAForm::SendScriptClick(TObject *Sender)
 }
 //---------------------------------------------------------------------------
 
+void __fastcall TAURAForm::SendCheckUpdsClick(TObject *Sender)
+{
+  AddActionLog("Надсилання команди перевірки оновлень");
+
+  TStringStream *ms = new TStringStream("#checkupdate", TEncoding::UTF8, true);
+
+  try
+	 {
+	   ms->Position = 0;
+	   SendToServer(Host->Text.c_str(), Port->Text.ToInt(), ms);
+	 }
+  __finally {delete ms;}
+}
+//---------------------------------------------------------------------------
+
 void __fastcall TAURAForm::AddToBookClick(TObject *Sender)
 {
   try

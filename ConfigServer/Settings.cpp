@@ -17,7 +17,6 @@ extern int ListenPort, ActivityCheckInterval;
 __fastcall TSettingsForm::TSettingsForm(TComponent* Owner)
 	: TForm(Owner)
 {
-  Parent = ServerForm;
 }
 //---------------------------------------------------------------------------
 

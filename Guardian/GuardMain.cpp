@@ -54,8 +54,6 @@ void __fastcall TGuardian::FormCreate(TObject *Sender)
   Guard = new TGuardThread(true, AgentPath);
   Guard->Resume();
 
-  Updater = new TUpdateThread(true, AgentPath, DataPath + "\\" + GetFileNameFromFilePath(AgentPath));
-
   SaveLogTimer->Enabled = true;
 }
 //---------------------------------------------------------------------------
@@ -64,24 +62,17 @@ void __fastcall TGuardian::FormClose(TObject *Sender, TCloseAction &Action)
 {
   try
 	 {
-	   if (Guard && Guard->Started)
+	   if (Guard)
 		 {
 		   Guard->Terminate();
+		   HANDLE hGuard = reinterpret_cast<HANDLE>(Guard->Handle);
 
-		   while (!Guard->Finished)
-			 Sleep(100);
+		   DWORD wait = WaitForSingleObject(hGuard, 300);
+
+		   if (wait == WAIT_TIMEOUT)
+			 TerminateThread(hGuard, 0);
 
 		   delete Guard;
-		 }
-
-	   if (Updater && Updater->Started)
-		 {
-		   Updater->Terminate();
-
-		   while (!Updater->Finished)
-			 Sleep(100);
-
-		   delete Updater;
 		 }
 
        Log->Add("Кінець роботи");
@@ -94,14 +85,6 @@ void __fastcall TGuardian::FormClose(TObject *Sender, TCloseAction &Action)
   Log->SaveToFile(LogPath + "\\" + LogName);
 
   delete Log;
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TGuardian::ApplicationEventsMessage(tagMSG &Msg, bool &Handled)
-{
-  //перехоплення повідомлення від Агента на старт оновлення
-  if ((Msg.message == WM_KEYDOWN) && (Msg.wParam == VK_RETURN))
-	Updater->Resume();
 }
 //---------------------------------------------------------------------------
 
@@ -156,6 +139,28 @@ void __fastcall TGuardian::SaveLogTimerTimer(TObject *Sender)
 	  LogName = DateToStr(Date()) + "_guard.log";
 	  DateStart = Date().CurrentDate();
 	}
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TGuardian::WndProc(Messages::TMessage& Msg)
+{
+  if ((Msg.Msg == WM_KEYDOWN) && (Msg.WParam == VK_RETURN))
+	{
+      Log->Add("Надійшов запит на оновлення");
+
+      try
+		 {
+           Updater = new TUpdateThread(AgentPath, DataPath + "\\" + GetFileNameFromFilePath(AgentPath));
+
+		   Updater->Resume();
+		 }
+	  catch (Exception &e)
+		 {
+		   Log->Add("Ініціалізація процесу оновлення: " + e.ToString());
+		 }
+	}
+
+  TForm::WndProc(Msg);
 }
 //---------------------------------------------------------------------------
 

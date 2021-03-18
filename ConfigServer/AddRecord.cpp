@@ -59,10 +59,28 @@ void __fastcall TAddRecordForm::ApplyClick(TObject *Sender)
 			  AddrBookChecker->CollectionChanged = true;
 			  prev_grp->Node->Expand(true);
 
+			  if (itm->Node == ServerForm->AddrList->Selected)
+				ServerForm->ShowClientInfo(itm->Name, grp->Name, itm->Host, itm->Port);
+			  else
+				ServerForm->ClearClientInfo();
+
 			  Close();
 			}
-		  else
-            MessageBox(Handle, L"Такий запис вже існує", L"Помилка", MB_OK|MB_ICONERROR);
+		  else //запис був у групі, група не змінилась - редагуються параметри запису
+			{
+			  itm->Host = Host->Text;
+              itm->Port = Port->Text;
+			  AddrBook->CreateSortedTree(ServerForm->AddrList);
+			  AddrBookChecker->CollectionChanged = true;
+			  prev_grp->Node->Expand(true);
+
+              if (itm->Node == ServerForm->AddrList->Selected)
+				ServerForm->ShowClientInfo(itm->Name, grp->Name, itm->Host, itm->Port);
+              else
+				ServerForm->ClearClientInfo();
+
+			  Close();
+			}
 		}
 	  else if (grp)
 		{

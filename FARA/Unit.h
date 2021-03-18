@@ -87,6 +87,7 @@ __published:	// IDE-managed Components
 	TLabel *Label11;
 	TEdit *CfgServerPort;
 	TBitBtn *LoadAddrBookFromServer;
+	TButton *SendCheckUpds;
 	void __fastcall ConnectClick(TObject *Sender);
 	void __fastcall PortClick(TObject *Sender);
 	void __fastcall ReadCfgClick(TObject *Sender);
@@ -121,6 +122,7 @@ __published:	// IDE-managed Components
           int X, int Y);
 	void __fastcall LoadAddrBookFromServerClick(TObject *Sender);
 	void __fastcall SendScriptClick(TObject *Sender);
+	void __fastcall SendCheckUpdsClick(TObject *Sender);
 
 private:	// User declarations
 	int __fastcall ReadTmpCfg(String cfg);

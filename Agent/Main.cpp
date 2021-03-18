@@ -64,6 +64,10 @@ __fastcall TMainForm::TMainForm(TComponent* Owner)
   AppName = GetFileNameFromFilePath(Application->ExeName);
 
   DataPath = GetEnvironmentVariable("USERPROFILE") + "\\Documents\\AFAgent";
+
+  if (!DirectoryExists(DataPath))
+	CreateDir(DataPath);
+
   LogPath = DataPath + "\\Log";
   DataPath += "\\Data";
 
@@ -79,6 +83,11 @@ __fastcall TMainForm::TMainForm(TComponent* Owner)
 
   DateStart = Date().CurrentDate();
   LogName = DateToStr(Date()) + ".log";
+
+  MenuItemList = new TList();
+  Log = new TThreadSafeLog();
+  ConnManager = new TConnectionManager();
+  ConfigLoader = new TConfigLoaderThread(true);
 }
 //---------------------------------------------------------------------------
 
@@ -88,13 +97,16 @@ void __fastcall TMainForm::FormCreate(TObject *Sender)
 	 {
        WindowState = wsMinimized;
 	   StartApplication();
+
+//підписуємось на отримання повідомлень WM_WTSSESSION_CHANGE
+//щоб зупиняти Менеджер, коли користувач виходить з обліковки
+	   if (!WTSRegisterSessionNotification(this->Handle, NOTIFY_FOR_THIS_SESSION))
+		 throw new Exception("WTSRegisterSessionNotification() fail: " + IntToStr((int)GetLastError()));
 	 }
   catch (Exception &e)
 	 {
 	   Log->Add("Помилка під час запуску");
-
        Log->Add("Ініціалізація: " + e.ToString());
-
 	   Log->SaveToFile(LogPath + "\\" + LogName);
 
 	   if (SendReportToMail)
@@ -107,22 +119,49 @@ void __fastcall TMainForm::FormDestroy(TObject *Sender)
 {
   try
 	 {
-	   StopApplication();
+       try
+		  {
+			StopApplication();
+
+            if (ConfigLoader && ConfigLoader->Started)
+			  {
+				ConfigLoader->Terminate();
+
+				while (!ConfigLoader->Finished)
+				  Sleep(100);
+
+				delete ConfigLoader;
+			  }
+
+			ReleaseELI();
+
+			delete ConnManager;
+
+			for (int i = 0; i < MenuItemList->Count; i++)
+			   {
+				 TMenuItem *m = reinterpret_cast<TMenuItem*>(MenuItemList->Items[i]);
+				 delete m;
+			   }
+
+	   		delete MenuItemList;
+		  }
+	   catch (Exception &e)
+		  {
+	   		Log->Add(e.ToString());
+		  }
 	 }
-  catch (Exception &e)
+  __finally
 	 {
-	   Log->Add(e.ToString());
-	 }
-
 //відписуємось від розсилки повідомлень WM_WTSSESSION_CHANGE
-  WTSUnRegisterSessionNotification(this->Handle);
+	   WTSUnRegisterSessionNotification(this->Handle);
 
-  AURAServer->Active = false;
-  SaveLogTimer->Enabled = false;
+	   if (SendReportToMail)
+		 SendLog(MailTo, MailSubjectOK, MailFrom, Log->GetText());
 
-  Log->SaveToFile(LogPath + "\\" + LogName);
+	   Log->SaveToFile(LogPath + "\\" + LogName);
 
-  delete Log;
+	   delete Log;
+	 }
 }
 //---------------------------------------------------------------------------
 
@@ -263,7 +302,8 @@ void __fastcall TMainForm::Migration()
 
 	   Log->Add("Реєстраційні дані Агента додані у систему");
 
-       ShutdownProcessByExeName("ArmMngr.exe");
+	   ShutdownProcessByExeName("ArmMngrGuard.exe");
+	   ShutdownProcessByExeName("ArmMngr.exe");
 
 	   if (CheckAppAutoStart("ArmFileManager", FOR_ALL_USERS))
 		 RemoveAppAutoStart("ArmFileManager", FOR_ALL_USERS);
@@ -271,6 +311,8 @@ void __fastcall TMainForm::Migration()
 		 RemoveAppAutoStart("ArmFileManager", FOR_CURRENT_USER);
 
 	   Log->Add("Реєстраційні дані Менеджеру файлів АРМ ВЗ видалені із системи");
+
+       Sleep(1000);
 	 }
   catch (Exception &e)
 	 {
@@ -883,13 +925,13 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 				Log->Add("FARA: отримано команду перезапуску Guardian");
 				RestartGuardian();
 			  }
-			else if (list->Strings[0] == "#exec_script")
+			else if (list->Strings[0].SubString(1, 6) == "#begin") //з цього слова починається будь-який скрипт
 			  {
 				Log->Add("FARA: надійшов керуючий скрипт");
 
 				try
 				   {
-					 eIface->RunScript(list->Strings[1].c_str(),
+					 eIface->RunScript(list->Strings[0].c_str(),
 									   L"",
 									   ScriptLog);
 
@@ -909,9 +951,33 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 					 Log->Add("ELI: помилка виконання скрипту " + e.ToString());
 				   }
 			  }
-			else if (list->Strings[0] == "#status")
+			else if (list->Strings[0] == "#status") //запит статусу від сервера конфігів
 			  {
 				ASendStatusAnswer(AContext);
+			  }
+			else if (list->Strings[0] == "#checkupdate") //команда примусового з'єднання з сервером конфігів
+			  {
+				Log->Add("FARA: надійшла команда перевірки оновлень");
+
+				if (ConfigLoader)
+				  {
+					ConfigLoader->Terminate();
+					HANDLE hLoader = reinterpret_cast<HANDLE>(ConfigLoader->Handle);
+
+					DWORD wait = WaitForSingleObject(hLoader, 300);
+
+					if (wait == WAIT_TIMEOUT)
+					  TerminateThread(hLoader, 0);
+
+					delete ConfigLoader;
+				  }
+
+				 ConfigLoader = new TConfigLoaderThread(true);
+
+				if (!WaitForLoadFromServer(2000))
+				  Log->Add("Немає відповіді від серверу конфігурацій");
+				else
+				  Log->Add("Встановлено зв'язок із сервером конфігурацій");
 			  }
 			else
 			  throw Exception("Невідомі дані: " + list->Strings[0]);
@@ -1014,7 +1080,7 @@ void __fastcall TMainForm::SendStartUpdateMessage()
 	  if (!guard_handle)
 		throw new Exception("Не вдалося отримати хендл вікна Guardian");
 	  else
-	    PostMessage(guard_handle, WM_KEYDOWN, VK_RETURN, NULL);
+		SendMessage(guard_handle, WM_KEYDOWN, VK_RETURN, NULL);
 	}
   catch (Exception &e)
 	{
@@ -1062,11 +1128,6 @@ void __fastcall TMainForm::SaveLogTimerTimer(TObject *Sender)
 
 void __fastcall TMainForm::StartApplication()
 {
-  MenuItemList = new TList();
-  Log = new TThreadSafeLog();
-  ConnManager = new TConnectionManager();
-  ConfigLoader = new TConfigLoaderThread(true);
-
   ConnManager->InfoIcon = TrayIcon;
 
   if (FileExists(LogPath + "\\" + LogName))
@@ -1122,12 +1183,7 @@ void __fastcall TMainForm::StartApplication()
 		  CreateExistConnections();
 		}
 	  else
-        Log->Add("Встановлено зв'язок із сервером конфігурацій");
-
-//підписуємось на отримання повідомлень WM_WTSSESSION_CHANGE
-//щоб зупиняти Менеджер, коли користувач виходить з обліковки
-	   if (!WTSRegisterSessionNotification(this->Handle, NOTIFY_FOR_THIS_SESSION))
-		 throw new Exception("WTSRegisterSessionNotification() fail: " + IntToStr((int)GetLastError()));
+		Log->Add("Встановлено зв'язок із сервером конфігурацій");
 
 	   LbStatus->Caption = "Робота";
 	   LbStatus->Font->Color = clLime;
@@ -1143,31 +1199,15 @@ void __fastcall TMainForm::StopApplication()
 	   LbStatus->Font->Color = clRed;
 
 	   if (ConfigLoader && ConfigLoader->Started)
-		 {
-		   ConfigLoader->Terminate();
+		 ConfigLoader->Terminate();
 
-		   while (!ConfigLoader->Finished)
-			 Sleep(100);
-
-           delete ConfigLoader;
-         }
-
-	   ReleaseELI();
-
-	   delete ConnManager;
-
-	   for (int i = 0; i < MenuItemList->Count; i++)
-		  {
-			TMenuItem *m = reinterpret_cast<TMenuItem*>(MenuItemList->Items[i]);
-			delete m;
-		  }
-
-	   delete MenuItemList;
+	   AURAServer->Active = false;
 
 	   Log->Add("Кінець роботи");
 
-	   if (SendReportToMail)
-		 SendLog(MailTo, MailSubjectOK, MailFrom, Log->GetText());
+	   SaveLogTimer->Enabled = false;
+
+       Log->SaveToFile(LogPath + "\\" + LogName);
 	 }
   catch (Exception &e)
 	 {
@@ -1614,7 +1654,10 @@ bool __fastcall TMainForm::WaitForLoadFromServer(long millisec)
 	 {
 	   Log->Add("Очікування зв'язку з сервером конфігурацій");
 
-	   ConfigLoader->Resume();
+	   if (ConfigLoader->Suspended)
+		 ConfigLoader->Resume();
+	   else if (ConfigLoader->Finished)
+		 ConfigLoader->Start();
 
 	   while (!ConfigLoader->Connected)
 		 {
@@ -1968,7 +2011,7 @@ void __fastcall TMainForm::ShutdownManager()
 
 void __fastcall TMainForm::ShutdownGuardian()
 {
-  PostMessage(FindHandleByName(L"ArmAgent Guardian"), WM_QUIT, 0, 0);
+  PostMessage(FindHandleByName(L"ArmAgent Guardian"), WM_CLOSE, 0, 0);
 }
 //---------------------------------------------------------------------------
 
@@ -1980,7 +2023,7 @@ int __fastcall TMainForm::StartGuardian()
 
 int __fastcall TMainForm::RestartGuardian()
 {
-  PostMessage(FindHandleByName(L"ArmAgent Guardian"), WM_QUIT, 0, 0);
+  PostMessage(FindHandleByName(L"ArmAgent Guardian"), WM_CLOSE, 0, 0);
 
   Sleep(1000);
 

@@ -73,6 +73,7 @@ class TRecpientItemCollection
 	 void DeleteRecipientsInGroup(int group_id);
 	 //void DeleteRecipientsInGroup(String group_name);
 	 RecipientItem *FindRecipientInGroup(int group_id, String name, String host, String port);
+	 RecipientItem *FindRecipientInGroup(int group_id, const String &name);
 	 int NextID();
      void Clear();
 

@@ -5464,11 +5464,7 @@ object MainForm: TMainForm
     end
   end
   object AURAServer: TIdTCPServer
-    Bindings = <
-      item
-        IP = '0.0.0.0'
-        Port = 7894
-      end>
+    Bindings = <>
     DefaultPort = 0
     OnExecute = AURAServerExecute
     Left = 144

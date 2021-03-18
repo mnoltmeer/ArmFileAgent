@@ -1320,14 +1320,14 @@ object AURAForm: TAURAForm
         object Shutdown: TButton
           Left = 0
           Top = 42
-          Width = 115
+          Width = 98
           Height = 25
           Caption = #1042#1080#1084#1082#1085#1091#1090#1080' '#1084#1086#1076#1091#1083#1100
           TabOrder = 3
           OnClick = ShutdownClick
         end
         object RestartGuard: TButton
-          Left = 118
+          Left = 104
           Top = 42
           Width = 141
           Height = 25
@@ -1336,13 +1336,22 @@ object AURAForm: TAURAForm
           OnClick = RestartGuardClick
         end
         object SendScript: TButton
-          Left = 262
+          Left = 251
           Top = 42
-          Width = 113
+          Width = 107
           Height = 25
           Caption = #1053#1072#1076#1110#1089#1083#1072#1090#1080' '#1089#1082#1088#1080#1087#1090
           TabOrder = 5
           OnClick = SendScriptClick
+        end
+        object SendCheckUpds: TButton
+          Left = 364
+          Top = 42
+          Width = 131
+          Height = 25
+          Caption = #1055#1077#1088#1077#1074#1110#1088#1080#1090#1080' '#1086#1085#1086#1074#1083#1077#1085#1085#1103
+          TabOrder = 6
+          OnClick = SendCheckUpdsClick
         end
       end
       object ControlFooterPanel: TPanel
