@@ -1122,7 +1122,9 @@ void __fastcall TServerForm::AddConfigClick(TObject *Sender)
 
 	   if (itm)
 		 {
-           if (OpenCfgDialog->Execute())
+           OpenCfgDialog->FileName = "";
+
+		   if (OpenCfgDialog->Execute())
 			 {
 			   if (itm->ParentNodeID == 0) //вибрана група
 				 {
