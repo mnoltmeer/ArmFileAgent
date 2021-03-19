@@ -325,11 +325,18 @@ void __fastcall TMainForm::Unregistration()
 {
   try
 	 {
-	   TRegistry *reg = new TRegistry();
+	   Caption = "ArmAgent -unreg";
+
+	   TRegistry *reg = new TRegistry(KEY_WRITE);
 
 	   try
 		  {
 			reg->RootKey = HKEY_CURRENT_USER;
+
+			if (reg->KeyExists("Software\\ArmFileAgent"))
+			  reg->DeleteKey("Software\\ArmFileAgent");
+
+            reg->RootKey = HKEY_LOCAL_MACHINE;
 
 			if (reg->KeyExists("Software\\ArmFileAgent"))
 			  reg->DeleteKey("Software\\ArmFileAgent");
@@ -342,6 +349,16 @@ void __fastcall TMainForm::Unregistration()
 		 RemoveAppAutoStart("ArmFileAgent", FOR_CURRENT_USER);
 
 	   Log->Add("Реєстраційні дані Агента видалені із системи");
+
+	   ShutdownGuardian();
+
+	   HWND hAgent;
+
+	   while (hAgent = FindHandleByName(L"Файловий агент АРМ ВЗ"))
+		 {
+		   PostMessage(hAgent, WM_QUIT, 0, 0);
+		   Sleep(100);
+		 }
 	 }
   catch (Exception &e)
 	 {
@@ -925,31 +942,11 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 				Log->Add("FARA: отримано команду перезапуску Guardian");
 				RestartGuardian();
 			  }
-			else if (list->Strings[0].SubString(1, 6) == "#begin") //з цього слова починається будь-який скрипт
+			else if (msg.SubString(1, 6) == "#begin") //з цього слова починається будь-який скрипт
 			  {
 				Log->Add("FARA: надійшов керуючий скрипт");
 
-				try
-				   {
-					 eIface->RunScript(list->Strings[0].c_str(),
-									   L"",
-									   ScriptLog);
-
-                     TStringList *lst = new TStringList();
-
-					 try
-						{
-						  StrToList(lst, eIface->ShowInfoMessages(), "\r\n");
-
-						  for (int i = 0; i < lst->Count; i++)
-							Log->Add(lst->Strings[i]);
-						}
-					 __finally {delete lst;}
-				   }
-				catch (Exception &e)
-				   {
-					 Log->Add("ELI: помилка виконання скрипту " + e.ToString());
-				   }
+				ExecuteScript(msg.c_str());
 			  }
 			else if (list->Strings[0] == "#status") //запит статусу від сервера конфігів
 			  {
@@ -1148,6 +1145,8 @@ void __fastcall TMainForm::StartApplication()
 	{
 	  Unregistration();
 	  Application->Terminate();
+
+	  return;
 	}
   else if (ParamStr(1) == "-firewall-add")
 	{
@@ -1612,8 +1611,41 @@ void __fastcall TMainForm::ExecuteScript(String ctrl_script_name)
   else
 	{
 	  Log->Add("ELI: помилка підключення бібліотеки");
+	}
+}
+//---------------------------------------------------------------------------
 
-	  return;
+void __fastcall TMainForm::ExecuteScript(const wchar_t *ctrl_script_text)
+{
+  if (ConnectELI() == 0)
+	{
+	  try
+		 {
+		   Log->Add("ELI: запуск скрипту");
+
+		   eIface->RunScript(ctrl_script_text, L"", ScriptLog);
+
+		   TStringList *lst = new TStringList();
+
+		   try
+			  {
+				StrToList(lst, eIface->ShowInfoMessages(), "\r\n");
+
+				for (int i = 0; i < lst->Count; i++)
+				   Log->Add(lst->Strings[i]);
+			  }
+		   __finally {delete lst;}
+		 }
+	  catch (Exception &e)
+		 {
+		   Log->Add("ELI: помилка виконання скрипту " + e.ToString());
+		 }
+
+	  ReleaseELI();
+	}
+  else
+	{
+	  Log->Add("ELI: помилка підключення бібліотеки");
 	}
 }
 //---------------------------------------------------------------------------
@@ -1638,7 +1670,7 @@ void __fastcall TMainForm::LoadFunctionsToELI()
   eIface->AddFunction(L"_WriteToLog", L"sym pMsg", &eWriteMsgToLog);
   eIface->AddFunction(L"_GetAppPath", L"", &eGetAppPath);
   eIface->AddFunction(L"_GetDataPath", L"", &eGetDataPath);
-  eIface->AddFunction(L"_ShutdownMngr", L"", &eShutdownManager);
+  eIface->AddFunction(L"_ShutdownAgent", L"", &eShutdownAgent);
   eIface->AddFunction(L"_ShutdownGuard", L"", &eShutdownGuardian);
   eIface->AddFunction(L"_StartGuard", L"", &eStartGuardian);
   eIface->AddFunction(L"_RestartGuard", L"", &eRestartGuardian);
@@ -2003,7 +2035,7 @@ void __fastcall TMainForm::WriteToMngrLog(String msg)
 }
 //---------------------------------------------------------------------------
 
-void __fastcall TMainForm::ShutdownManager()
+void __fastcall TMainForm::ShutdownAgent()
 {
   PostMessage(Application->Handle, WM_QUIT, 0, 0);
 }
@@ -2595,7 +2627,7 @@ void __stdcall eGetDataPath(void *p)
 }
 //---------------------------------------------------------------------------
 
-void __stdcall eShutdownManager(void *p)
+void __stdcall eShutdownAgent(void *p)
 {
   Log->Add("ELI: Отримано команду shutdown");
 
@@ -2607,19 +2639,19 @@ void __stdcall eShutdownManager(void *p)
 	 }
   catch (Exception &e)
 	 {
-	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eShutdownManager(): " + e.ToString());
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eShutdownAgent(): " + e.ToString());
 
 	   return;
 	 }
 
   try
 	 {
-	   MainForm->ShutdownManager();
+	   MainForm->ShutdownAgent();
 	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"1");
 	 }
   catch (Exception &e)
 	 {
-	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eShutdownManager(): " + e.ToString());
+	   SaveLogToUserFolder("eli.log", UsedAppLogDir, "eShutdownAgent(): " + e.ToString());
 	   ep->SetFunctionResult(ep->GetCurrentFuncName(), L"0");
 	 }
 }

@@ -222,6 +222,7 @@ void __fastcall TFirstStartForm::OpenManagerCfgClick(TObject *Sender)
 		   else
 			 MigrAutoStartForAll->Caption = "í³";
 
+		   ManagerCfgPath->Text = OpenCfgDialog->FileName;
 		   Index->Text = index;
            RemoteAdminPort->Text = port;
 		   EnableAutoStart->Checked = autorun;

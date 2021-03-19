@@ -125,7 +125,7 @@ public:		// User declarations
 	bool __fastcall WriteToCfg(int id, String param, String val);
 	bool __fastcall RemoveFromCfg(String file, String param);
 	void __fastcall WriteToMngrLog(String msg);
-	void __fastcall ShutdownManager();
+	void __fastcall ShutdownAgent();
 	void __fastcall ShutdownGuardian();
 	int __fastcall StartGuardian();
 	int __fastcall RestartGuardian();
@@ -139,6 +139,7 @@ public:		// User declarations
     int __fastcall ConnectELI();
 	int __fastcall ReleaseELI();
 	void __fastcall ExecuteScript(String ctrl_script_name);
+	void __fastcall ExecuteScript(const wchar_t *ctrl_script_text);
 	void __fastcall UpdateRequest();
     void __fastcall SendStartUpdateMessage();
 	int __fastcall ReadConfig();
@@ -224,7 +225,7 @@ void __stdcall eWriteToCfgByID(void *p);
 void __stdcall eWriteMsgToLog(void *p);
 void __stdcall eGetAppPath(void *p);
 void __stdcall eGetDataPath(void *p);
-void __stdcall eShutdownManager(void *p);
+void __stdcall eShutdownAgent(void *p);
 void __stdcall eShutdownGuardian(void *p);
 void __stdcall eStartGuardian(void *p);
 void __stdcall eRestartGuardian(void *p);
