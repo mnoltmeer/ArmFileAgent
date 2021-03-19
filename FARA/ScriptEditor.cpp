@@ -290,11 +290,27 @@ void __fastcall TScriptForm::EditorKeyUp(TObject *Sender, WORD &Key, TShiftState
 	  ActivateCodeInsight();
 	}
 
-  if (!(Shift.Contains(ssCtrl) || Shift.Contains(ssShift) || (Key == 16) || (Key == 17) || (Key == 18)))
+  if (!(Shift.Contains(ssCtrl) || Shift.Contains(ssShift) ||
+	  (Key == 16) || (Key == 17) || (Key == 18)))
 	{
 	  LockWindowUpdate(Editor->Handle);
 	  HighlightSource(Editor, Editor->CaretPos.Y);
 	  LockWindowUpdate(NULL);
+	}
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TScriptForm::EditorKeyPress(TObject *Sender, System::WideChar &Key)
+{
+  switch (Key)
+	{
+	  case 22: //ctrl+v
+		{
+          SendMessage(Editor->Handle, WM_KEYUP, 0, NULL);
+		  break;
+		}
+
+	  default: break;
 	}
 }
 //---------------------------------------------------------------------------
@@ -399,5 +415,7 @@ void __fastcall TScriptForm::SendScriptClick(TObject *Sender)
 	 }
 }
 //---------------------------------------------------------------------------
+
+
 
 

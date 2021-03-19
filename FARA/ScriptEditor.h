@@ -40,6 +40,7 @@ __published:	// IDE-managed Components
 	void __fastcall FormShow(TObject *Sender);
 	void __fastcall LoadScriptClick(TObject *Sender);
 	void __fastcall SendScriptClick(TObject *Sender);
+	void __fastcall EditorKeyPress(TObject *Sender, System::WideChar &Key);
 private:	// User declarations
 	void __fastcall ActivateCodeInsight();
     void __fastcall CreateCodeInsightMenu(String entity_name);

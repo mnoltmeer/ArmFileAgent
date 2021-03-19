@@ -229,6 +229,7 @@ object ScriptForm: TScriptForm
     TabOrder = 1
     Zoom = 100
     OnKeyDown = EditorKeyDown
+    OnKeyPress = EditorKeyPress
     OnKeyUp = EditorKeyUp
     OnMouseDown = EditorMouseDown
   end
