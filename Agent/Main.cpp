@@ -11,6 +11,7 @@ Copyright 2020-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 
 #include "TConfigLoaderThread.h"
 #include "TConnectionManager.h"
+#include "TAURAConnectThread.h"
 #include "FirstStart.h"
 #include "Main.h"
 //---------------------------------------------------------------------------
@@ -32,6 +33,8 @@ TThreadSafeLog *Log;
 TConnectionManager *ConnManager;
 
 TConfigLoaderThread *ConfigLoader;
+
+TAURAConnectThread *AURAConnector;
 
 HINSTANCE dllhandle;
 
@@ -302,17 +305,38 @@ void __fastcall TMainForm::Migration()
 
 	   Log->Add("Реєстраційні дані Агента додані у систему");
 
-	   ShutdownProcessByExeName("ArmMngrGuard.exe");
-	   ShutdownProcessByExeName("ArmMngr.exe");
-
-	   if (CheckAppAutoStart("ArmFileManager", FOR_ALL_USERS))
+       if (CheckAppAutoStart("ArmFileManager", FOR_ALL_USERS))
 		 RemoveAppAutoStart("ArmFileManager", FOR_ALL_USERS);
 	   else if (CheckAppAutoStart("ArmFileManager", FOR_CURRENT_USER))
 		 RemoveAppAutoStart("ArmFileManager", FOR_CURRENT_USER);
 
 	   Log->Add("Реєстраційні дані Менеджеру файлів АРМ ВЗ видалені із системи");
 
-       Sleep(1000);
+       HWND handle = FindHandleByName(L"Менеджер обміну файлами АРМ ВЗ");
+
+	   if (handle)
+		 {
+		   Log->Add("Спроба завершити роботу Guardian Менеджера");
+
+		   PostMessage(handle, WM_QUIT, 0, 0);
+
+		   if (!WaitForAppClose(L"Guardian Менеджера обміну файлами АРМ ВЗ", 5000))
+			 ShutdownProcessByExeName("ArmMngrGuard.exe");
+		 }
+
+       handle = FindHandleByName(L"Менеджер обміну файлами АРМ ВЗ");
+
+	   if (handle)
+		 {
+		   Log->Add("Спроба завершити роботу Менеджера");
+
+		   PostMessage(handle, WM_QUIT, 0, 0);
+
+		   if (!WaitForAppClose(L"Менеджер обміну файлами АРМ ВЗ", 5000))
+			 ShutdownProcessByExeName("ArmMngr.exe");
+		 }
+
+       Sleep(2000);
 	 }
   catch (Exception &e)
 	 {
@@ -1170,7 +1194,8 @@ void __fastcall TMainForm::StartApplication()
 	  WriteModulePath();
 
 	  AURAServer->DefaultPort = RemAdmPort;
-	  AURAServer->Active = true;
+
+	  AURAConnector = new TAURAConnectThread(AURAServer);
 
 	  SaveLogTimer->Enabled = true;
 
@@ -1197,8 +1222,8 @@ void __fastcall TMainForm::StopApplication()
 	   LbStatus->Caption = "Зупинено";
 	   LbStatus->Font->Color = clRed;
 
-	   if (ConfigLoader && ConfigLoader->Started)
-		 ConfigLoader->Terminate();
+       if (AURAConnector && AURAConnector->Started)
+	     AURAConnector->Terminate();
 
 	   AURAServer->Active = false;
 

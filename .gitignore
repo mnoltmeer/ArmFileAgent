@@ -48,3 +48,9 @@
 /FARA/*.optset
 /FARA/*.local
 /Agent/ArmMngr_Icon1.ico
+/ConsoleConfigServer/Windows/server.layout
+/ConsoleConfigServer/Windows/bin
+/ConsoleConfigServer/Windows/obj
+/ConsoleConfigServer/Windows/main.cpp.save-failed
+/ConsoleConfigServer/Windows/server.cscope_file_list
+/ConsoleConfigServer/Windows/server.depend

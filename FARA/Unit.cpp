@@ -1,5 +1,5 @@
 /*!
-Copyright 2019-2020 Maxim Noltmeer (m.noltmeer@gmail.com)
+Copyright 2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 */
 //---------------------------------------------------------------------------
 
@@ -190,7 +190,7 @@ void __fastcall TAURAForm::ConnectClick(TObject *Sender)
 
 void __fastcall TAURAForm::AddActionLog(String status)
 {
-  ShowLog(status, ActionLog);
+  SendToLog(status + "\r\n", ActionLog);
   SendMessage(ActionLog->Handle, WM_VSCROLL, SB_BOTTOM, 0);
 }
 //---------------------------------------------------------------------------
@@ -465,6 +465,53 @@ void __fastcall TAURAForm::AddrListDblClick(TObject *Sender)
 }
 //---------------------------------------------------------------------------
 
+TIdTCPClient* __fastcall TAURAForm::CreateSender(const wchar_t *host, int port)
+{
+  TIdTCPClient *sender = new TIdTCPClient(NULL);
+
+  sender->Host = host;
+  sender->Port = port;
+  sender->IPVersion = Id_IPv4;
+  sender->OnConnected = SenderConnected;
+  sender->OnDisconnected = SenderDisconnected;
+  sender->ConnectTimeout = 500;
+  sender->ReadTimeout = 5000;
+
+  return sender;
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TAURAForm::FreeSender(TIdTCPClient *sender)
+{
+  if (sender)
+	{
+	  if (sender->Connected())
+		{
+		  sender->Disconnect();
+		  sender->Socket->Close();
+		}
+
+      delete sender;
+    }
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TAURAForm::SenderConnected(TObject *Sender)
+{
+  TIdTCPClient *sender = reinterpret_cast<TIdTCPClient*>(Sender);
+
+  AddActionLog("Початок сесії з " + sender->Host + ":" + IntToStr(sender->Port));
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TAURAForm::SenderDisconnected(TObject *Sender)
+{
+  TIdTCPClient *sender = reinterpret_cast<TIdTCPClient*>(Sender);
+
+  AddActionLog("Кінець сесії з " + sender->Host + ":" + IntToStr(sender->Port));
+}
+//---------------------------------------------------------------------------
+
 int __fastcall TAURAForm::AskToServer(const wchar_t *host, int port, TStringStream *rw_bufer)
 {
   TIdTCPClient *AURAClient;
@@ -537,53 +584,6 @@ int __fastcall TAURAForm::SendToServer(const wchar_t *host, int port, TStringStr
 }
 //---------------------------------------------------------------------------
 
-TIdTCPClient* __fastcall TAURAForm::CreateSender(const wchar_t *host, int port)
-{
-  TIdTCPClient *sender = new TIdTCPClient(AURAForm);
-
-  sender->Host = host;
-  sender->Port = port;
-  sender->IPVersion = Id_IPv4;
-  sender->OnConnected = AURAClientConnected;
-  sender->OnDisconnected = AURAClientDisconnected;
-  sender->ConnectTimeout = 500;
-  sender->ReadTimeout = 5000;
-
-  return sender;
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TAURAForm::FreeSender(TIdTCPClient *sender)
-{
-  if (sender)
-	{
-	  if (sender->Connected())
-		{
-		  sender->Disconnect();
-		  sender->Socket->Close();
-		}
-
-      delete sender;
-    }
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TAURAForm::AURAClientConnected(TObject *Sender)
-{
-  TIdTCPClient *sender = reinterpret_cast<TIdTCPClient*>(Sender);
-
-  AURAForm->AddActionLog("Початок сесії з " + sender->Host + ":" + IntToStr(sender->Port));
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TAURAForm::AURAClientDisconnected(TObject *Sender)
-{
-  TIdTCPClient *sender = reinterpret_cast<TIdTCPClient*>(Sender);
-
-  AURAForm->AddActionLog("Кінець сесії з " + sender->Host + ":" + IntToStr(sender->Port));
-}
-//---------------------------------------------------------------------------
-
 void __fastcall TAURAForm::ShutdownClick(TObject *Sender)
 {
   if (MessageBox(Application->Handle,
@@ -593,7 +593,7 @@ void __fastcall TAURAForm::ShutdownClick(TObject *Sender)
 	{
 	  AddActionLog("Надсилання команди #shutdown");
 
-	  TStringStream *ms = new TStringStream("#shutdown%", TEncoding::UTF8, true);
+	  TStringStream *ms = new TStringStream("#shutdown", TEncoding::UTF8, true);
 
 	  try
 		 {
@@ -614,7 +614,7 @@ void __fastcall TAURAForm::RestartGuardClick(TObject *Sender)
 	{
 	  AddActionLog("Надсилання команди перезапуску Guardian");
 
-	  TStringStream *ms = new TStringStream("#restart_guard%", TEncoding::UTF8, true);
+	  TStringStream *ms = new TStringStream("#restart_guard", TEncoding::UTF8, true);
 
 	  try
 		 {

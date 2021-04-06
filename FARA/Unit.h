@@ -1,5 +1,5 @@
 /*!
-Copyright 2019-2020 Maxim Noltmeer (m.noltmeer@gmail.com)
+Copyright 2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 */
 //---------------------------------------------------------------------------
 
@@ -129,16 +129,16 @@ private:	// User declarations
 	int __fastcall ReadServerList();
 	int __fastcall ReadRemoteVersion();
 	int __fastcall AskToServer(const wchar_t *host, int port, TStringStream *rw_bufer);
-	TIdTCPClient* __fastcall CreateSender(const wchar_t *host, int port);
-	void __fastcall FreeSender(TIdTCPClient *sender);
-    void __fastcall AURAClientConnected(TObject *Sender);
-	void __fastcall AURAClientDisconnected(TObject *Sender);
 	void __fastcall CreateNewForm();
 	void __fastcall CreateEditForm();
 	void __fastcall RequestLog(int conn_id);
 	int __fastcall GetConnectionID(const String &str_with_id);
     void __fastcall WriteSettings();
 	void __fastcall ReadSettings();
+    TIdTCPClient* __fastcall CreateSender(const wchar_t *host, int port);
+	void __fastcall FreeSender(TIdTCPClient *sender);
+    void __fastcall SenderConnected(TObject *Sender);
+	void __fastcall SenderDisconnected(TObject *Sender);
 
 public:		// User declarations
 	__fastcall TAURAForm(TComponent* Owner);

@@ -6,8 +6,8 @@
 //---------------------------------------------------------------------------
 #include <Vcl.Styles.hpp>
 #include <Vcl.Themes.hpp>
-USEFORM("Unit.cpp", AURAForm);
 USEFORM("ScriptEditor.cpp", ScriptForm);
+USEFORM("Unit.cpp", AURAForm);
 //---------------------------------------------------------------------------
 int WINAPI _tWinMain(HINSTANCE, HINSTANCE, LPTSTR, int)
 {

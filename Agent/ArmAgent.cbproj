@@ -153,6 +153,10 @@
             <DependentOn>TAMThread.h</DependentOn>
             <BuildOrder>8</BuildOrder>
         </CppCompile>
+        <CppCompile Include="TAURAConnectThread.cpp">
+            <DependentOn>TAURAConnectThread.h</DependentOn>
+            <BuildOrder>16</BuildOrder>
+        </CppCompile>
         <CppCompile Include="TConfigLoaderThread.cpp">
             <DependentOn>TConfigLoaderThread.h</DependentOn>
             <BuildOrder>15</BuildOrder>
@@ -266,12 +270,6 @@
                 <DeployFile LocalName="TODO.txt" Configuration="Release" Class="ProjectFile">
                     <Platform Name="Win32">
                         <RemoteDir>.\</RemoteDir>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
-                <DeployFile LocalName=".\Win32\Debug\ArmAgent.tds" Configuration="Debug" Class="DebugSymbols">
-                    <Platform Name="Win32">
-                        <RemoteName>ArmAgent.tds</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
