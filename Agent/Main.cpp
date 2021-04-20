@@ -580,36 +580,6 @@ void __fastcall TMainForm::AddFirewallRule()
 		   Sleep(100);
 		 }
 
-	   /*if (system("netsh advfirewall firewall show rule name=\"FAGRA\" dir=in") != 0)
-		 {
-		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=in action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=domain";
-		   system(cmd.c_str());
-		   Sleep(100);
-
-		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=in action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=private";
-		   system(cmd.c_str());
-		   Sleep(100);
-
-		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=in action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=public";
-		   system(cmd.c_str());
-		   Sleep(100);
-		 }
-
-	   if (system("netsh advfirewall firewall show rule name=\"FAGRA\" dir=out") != 0)
-		 {
-		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=out action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=domain";
-		   system(cmd.c_str());
-		   Sleep(100);
-
-		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=out action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=private";
-		   system(cmd.c_str());
-		   Sleep(100);
-
-		   cmd = "netsh advfirewall firewall add rule name=\"FAGRA\" dir=out action=allow protocol=TCP localport=" + IntToStr(RemAdmPort + 1) + " enable=yes profile=public";
-		   system(cmd.c_str());
-		   Sleep(100);
-		 }*/
-
 	   if (system("netsh advfirewall firewall show rule name=\"FACS\" dir=in") != 0)
 		 {
 		   cmd = "netsh advfirewall firewall add rule name=\"FACS\" dir=in action=allow protocol=TCP localport=" + IntToStr(ConfigServerPort) + " enable=yes profile=domain";
@@ -639,6 +609,8 @@ void __fastcall TMainForm::RemoveFirewallRule()
 	   Log->Add("Вилучення правил для файрволу");
 
 	   system("netsh advfirewall firewall delete rule name=\"ArmAgent\"");
+	   system("netsh advfirewall firewall delete rule name=\"FARA\"");
+	   system("netsh advfirewall firewall delete rule name=\"FACS\"");
 	 }
   catch (Exception &e)
 	 {
@@ -1156,6 +1128,8 @@ void __fastcall TMainForm::StartApplication()
 
   Log->Add("Агента запущено");
 
+  int settings = ReadSettings();
+
   if (ParamStr(1) == "-init")
 	{
 	  if (ParamStr(2) == "-dialog")
@@ -1181,14 +1155,10 @@ void __fastcall TMainForm::StartApplication()
 	  RemoveFirewallRule();
 	}
 
-  int settings = ReadSettings();
-
   if (settings < 0)
 	FirstStartInitialisation(INIT_DIALOG);
   else if (settings == 0)
-	{
-	  Log->Add("Не всі параметри зчитано з реєстру. Проведіть процедуру первинної ініціалізації");
-	}
+	Log->Add("Не всі параметри зчитано з реєстру. Проведіть процедуру первинної ініціалізації");
   else
 	{
 	  WriteModulePath();
