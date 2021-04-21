@@ -1029,13 +1029,6 @@ int __fastcall TMainForm::RunGuardian()
 
 	  StartProcessByExeName(DataPath + "\\AFAGuard.exe");
 
-	  /*ShellExecute(NULL,
-				   L"open",
-				   String(AppPath + "\\AFAGuard.exe").c_str(),
-				   L"",
-				   NULL,
-				   SW_SHOW);*/
-
 	  if (GuardianRunning())
 		return 1;
 	  else
