@@ -80,9 +80,6 @@ private:	// User declarations
 	void __fastcall ShowInfoMsg(String textr);
 	void __fastcall CheckConfig(String cfg_file);
 
-//передстартові дії. Перехоплення виключень у цій функції не проводиться
-	void __fastcall StartApplication();
-
 	void __fastcall RunWork(TExchangeConnect *server);
 	void __fastcall EndWork(TExchangeConnect *server);
 
@@ -110,6 +107,9 @@ private:	// User declarations
 
 public:		// User declarations
 	__fastcall TMainForm(TComponent* Owner);
+
+    //передстартові дії. Перехоплення виключень у цій функції не проводиться
+	void __fastcall StartApplication();
 
 	int __fastcall CreateConnection(String file, bool create_menu);
 	void __fastcall DestroyConnection(int id);

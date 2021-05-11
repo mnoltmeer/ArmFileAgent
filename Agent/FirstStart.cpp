@@ -115,9 +115,10 @@ void __fastcall TFirstStartForm::ApplyClick(TObject *Sender)
 			RemoveAppAutoStart("ArmFileManager", FOR_CURRENT_USER);
         }
 
-      StartProcessByExeName(Application->ExeName);
+      //StartProcessByExeName(Application->ExeName);
 	  Close();
-      MainForm->Close();
+      MainForm->StartApplication();
+	  //MainForm->Close();
 	}
 }
 //---------------------------------------------------------------------------

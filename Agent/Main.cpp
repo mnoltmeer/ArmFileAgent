@@ -67,15 +67,11 @@ __fastcall TMainForm::TMainForm(TComponent* Owner)
   AppName = GetFileNameFromFilePath(Application->ExeName);
 
   DataPath = GetEnvironmentVariable("USERPROFILE") + "\\Documents\\AFAgent";
-
-  if (!DirectoryExists(DataPath))
-	CreateDir(DataPath);
-
   LogPath = DataPath + "\\Log";
   DataPath += "\\Data";
 
   if (!DirectoryExists(DataPath))
-	CreateDir(DataPath);
+	ForceDirectories(DataPath);
 
   if (!DirectoryExists(LogPath))
 	CreateDir(LogPath);
@@ -1121,8 +1117,6 @@ void __fastcall TMainForm::StartApplication()
 
   Log->Add("Агента запущено");
 
-  int settings = ReadSettings();
-
   if (ParamStr(1) == "-init")
 	{
 	  if (ParamStr(2) == "-dialog")
@@ -1147,6 +1141,8 @@ void __fastcall TMainForm::StartApplication()
 	{
 	  RemoveFirewallRule();
 	}
+
+  int settings = ReadSettings();
 
   if (settings < 0)
 	FirstStartInitialisation(INIT_DIALOG);
@@ -1731,7 +1727,7 @@ TExchangeConnect* __fastcall TMainForm::CreateConnection(String file)
 
 	   ConnManager->Run(res);
 
-	   Log->Add("Створене з'єднання " + res->Config->Caption + " з конфігу " + file);
+	   Log->Add("Створене з'єднання \"" + res->Config->Caption + "\" з конфігу " + file);
 	 }
   catch (Exception &e)
 	 {
