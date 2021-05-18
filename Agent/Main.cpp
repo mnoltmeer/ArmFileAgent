@@ -463,14 +463,6 @@ int __fastcall TMainForm::ReadConfig()
 		   result = 0;
 		 }
 
-	   rp = ReadParameter(DataPath + "\\main.cfg", "RemAdmPort", &RemAdmPort, TT_TO_INT);
-
-	   if (rp != RP_OK)
-		 {
-		   Log->Add("Помилка створення параметру RemAdmPort: " + String(GetLastReadParamResult()));
-		   result = 0;
-		 }
-
 	   rp = ReadParameter(DataPath + "\\main.cfg", "SendReportToMail", &SendReportToMail, TT_TO_BOOL);
 
 	   if (rp != RP_OK)
