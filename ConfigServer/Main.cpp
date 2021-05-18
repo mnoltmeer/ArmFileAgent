@@ -130,7 +130,9 @@ void __fastcall TServerForm::FormClose(TObject *Sender, TCloseAction &Action)
 	 {
 	   WriteSettings();
 
-       while (!StatusChecker->Finished)
+	   StatusChecker->Terminate();
+
+	   while (!StatusChecker->Finished)
 		 Sleep(100);
 
 	   delete StatusChecker;
