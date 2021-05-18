@@ -168,6 +168,10 @@
             <DependentOn>Settings.h</DependentOn>
             <BuildOrder>9</BuildOrder>
         </CppCompile>
+        <CppCompile Include="StatusChecker.cpp">
+            <DependentOn>StatusChecker.h</DependentOn>
+            <BuildOrder>10</BuildOrder>
+        </CppCompile>
         <CppCompile Include="..\..\work-functions\MyFunc.cpp">
             <DependentOn>..\..\work-functions\MyFunc.h</DependentOn>
             <BuildOrder>4</BuildOrder>
@@ -282,12 +286,6 @@
                 <DeployFile LocalName=".\Win32\Debug\AFAConfigServer.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>AFAConfigServer.exe</RemoteName>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
-                <DeployFile LocalName=".\Win32\Debug\AFAConfigServer.tds" Configuration="Debug" Class="DebugSymbols">
-                    <Platform Name="Win32">
-                        <RemoteName>AFAConfigServer.tds</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

@@ -2175,11 +2175,4 @@ object ServerForm: TServerForm
       FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000000000000000000000000000
       000000000000}
   end
-  object StatusChecker: TTimer
-    Enabled = False
-    Interval = 60000
-    OnTimer = StatusCheckerTimer
-    Left = 737
-    Top = 264
-  end
 end

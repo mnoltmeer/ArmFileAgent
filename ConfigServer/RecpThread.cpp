@@ -1,5 +1,5 @@
 /*!
-Copyright 2020 Maxim Noltmeer (m.noltmeer@gmail.com)
+Copyright 2020-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 */
 //---------------------------------------------------------------------------
 #include <System.hpp>
@@ -12,8 +12,8 @@ Copyright 2020 Maxim Noltmeer (m.noltmeer@gmail.com)
 __fastcall TRecpientCollectionThread::TRecpientCollectionThread(bool CreateSuspended)
 	: TThread(CreateSuspended)
 {
-  AChanged = false;
-  AInterval = 10000;
+  FChanged = false;
+  FInterval = 10000;
 }
 //---------------------------------------------------------------------------
 void __fastcall TRecpientCollectionThread::Execute()

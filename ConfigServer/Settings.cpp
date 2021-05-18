@@ -4,6 +4,7 @@
 #pragma hdrstop
 
 #include "..\..\work-functions\MyFunc.h"
+#include "StatusChecker.h"
 #include "Main.h"
 #include "Settings.h"
 //---------------------------------------------------------------------------
@@ -13,6 +14,7 @@ TSettingsForm *SettingsForm;
 
 extern TServerForm *ServerForm;
 extern int ListenPort, ActivityCheckInterval;
+extern TStatusCheckThread *StatusChecker;
 //---------------------------------------------------------------------------
 __fastcall TSettingsForm::TSettingsForm(TComponent* Owner)
 	: TForm(Owner)
@@ -89,9 +91,9 @@ void __fastcall TSettingsForm::WriteSettings()
 		 RemoveAppAutoStart("AFAConfigServer", FOR_CURRENT_USER);
 
 	   ActivityCheckInterval = ActRequestInterval->Text.ToInt();
-	   ServerForm->StatusChecker->Enabled = false;
-	   ServerForm->StatusChecker->Interval = ActivityCheckInterval * 10000;
-	   ServerForm->StatusChecker->Enabled = true;
+	   StatusChecker->Suspend();
+	   StatusChecker->CheckInterval = ActivityCheckInterval * 10000;
+	   StatusChecker->Resume();
 	 }
   catch (Exception &e)
 	 {

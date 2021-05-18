@@ -7,9 +7,9 @@
 #include <Vcl.Styles.hpp>
 #include <Vcl.Themes.hpp>
 USEFORM("Main.cpp", ServerForm);
+USEFORM("Settings.cpp", SettingsForm);
 USEFORM("AddGroup.cpp", AddGroupForm);
 USEFORM("AddRecord.cpp", AddRecordForm);
-USEFORM("Settings.cpp", SettingsForm);
 //---------------------------------------------------------------------------
 int WINAPI _tWinMain(HINSTANCE, HINSTANCE, LPTSTR, int)
 {

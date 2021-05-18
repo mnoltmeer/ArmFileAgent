@@ -10,6 +10,7 @@ Copyright 2020-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 #include "RecpOrganizer.h"
 #include "RecpThread.h"
 #include "ClientConfigLinks.h"
+#include "StatusChecker.h"
 #include "AddRecord.h"
 #include "AddGroup.h"
 #include "Settings.h"
@@ -24,6 +25,7 @@ extern String UsedAppLogDir; //вказуємо директорію для логування для функцій з M
 TRecpientItemCollection *AddrBook;
 TRecpientCollectionThread *AddrBookChecker;
 ClientConfigManager *ConfigManager;
+TStatusCheckThread *StatusChecker;
 String LogFile, LogDir, DataDir;
 int ListenPort, HideWnd, FullScreen, ActivityCheckInterval;
 TDate DateStart;
@@ -62,6 +64,12 @@ __fastcall TServerForm::TServerForm(TComponent* Owner)
 
 void __fastcall TServerForm::WriteLog(String record)
 {
+  if (Date().CurrentDate() > DateStart) //уточнюємо дату для логу
+	{
+	  DateStart = Date().CurrentDate();
+	  LogFile = DateToStr(DateStart) + ".log";
+	}
+
   SaveLog(LogDir + "\\" + LogFile, record);
 }
 //---------------------------------------------------------------------------
@@ -104,8 +112,10 @@ void __fastcall TServerForm::FormCreate(TObject *Sender)
 
 	   StartServer();
 
-       StatusChecker->Interval = ActivityCheckInterval * 60000;
-       StatusChecker->Enabled = true;
+       StatusChecker = new TStatusCheckThread(true);
+	   StatusChecker->Collection = AddrBook;
+	   StatusChecker->CheckInterval = ActivityCheckInterval * 60000;
+	   StatusChecker->Resume();
 	 }
   catch (Exception &e)
 	 {
@@ -120,7 +130,10 @@ void __fastcall TServerForm::FormClose(TObject *Sender, TCloseAction &Action)
 	 {
 	   WriteSettings();
 
-	   StatusChecker->Enabled = false;
+       while (!StatusChecker->Finished)
+		 Sleep(100);
+
+	   delete StatusChecker;
 
 	   StopServer();
 
@@ -130,6 +143,7 @@ void __fastcall TServerForm::FormClose(TObject *Sender, TCloseAction &Action)
 		 Sleep(100);
 
 	   delete AddrBookChecker;
+
 	   delete AddrBook;
 	   delete ConfigManager;
 
@@ -974,7 +988,7 @@ void __fastcall TServerForm::ExportAddrAndLinks(const String &file)
 {
   try
 	 {
-	   StatusChecker->Enabled = false;
+	   StatusChecker->Suspend();
        AddrBook->Save();
 	   ConfigManager->SaveToFile(DataDir + "\\config.links");
 
@@ -1013,7 +1027,7 @@ void __fastcall TServerForm::ExportAddrAndLinks(const String &file)
 			   }
 			__finally {delete links_file; delete[] buf;}
 		  }
-	   __finally {delete result_file; StatusChecker->Enabled = true;}
+	   __finally {delete result_file; StatusChecker->Resume();}
 	 }
   catch (Exception &e)
 	 {
@@ -1026,7 +1040,7 @@ void __fastcall TServerForm::ImportAddrAndLinks(const String &file)
 {
   try
 	 {
-	   StatusChecker->Enabled = false;
+	   StatusChecker->Suspend();
 
 	   TFileStream *result_file = new TFileStream(file, fmOpenRead|fmShareDenyNone);
 
@@ -1064,7 +1078,7 @@ void __fastcall TServerForm::ImportAddrAndLinks(const String &file)
 			AddrBook->LoadFromFile(DataDir + "\\hosts.grp");
 			ConfigManager->LoadFromFile(DataDir + "\\config.links");
 		  }
-	   __finally {delete result_file; StatusChecker->Enabled = true;}
+	   __finally {delete result_file; StatusChecker->Resume();}
 	 }
   catch (Exception &e)
 	 {
@@ -1196,52 +1210,6 @@ void __fastcall TServerForm::RemoveConfigClick(TObject *Sender)
   catch (Exception &e)
 	 {
 	   WriteLog("Вилучення конфігу: " + e.ToString());
-	 }
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TServerForm::StatusCheckerTimer(TObject *Sender)
-{
-  try
-	 {
-	   std::vector<int> id_list;
-
-	   id_list.clear();
-
-	   AddrBook->SelectRecipients(&id_list);
-
-	   TStringStream *ms = new TStringStream("#status", TEncoding::UTF8, true);
-
-	   try
-		  {
-			int status;
-
-			for (int i = 0; i < id_list.size(); i++)
-			   {
-				 RecipientItem *itm = AddrBook->FindItem(id_list[i]);
-
-				 if (itm)
-				   {
-					 status = AskToClient(itm->Host.c_str(), itm->Port.ToInt(), ms);
-
-					 if (status < 0)
-					   itm->Node->StateIndex = 4;
-					 else if (ms->ReadString(ms->Size) == "#ok")
-					   itm->Node->StateIndex = 3;
-				   }
-			   }
-		  }
-	   __finally {delete ms;}
-
-	   if (Date().CurrentDate() > DateStart) //уточнюємо дату для логу
-		 {
-		   DateStart = Date().CurrentDate();
-		   LogFile = DateToStr(DateStart) + ".log";
-		 }
-	 }
-  catch (Exception &e)
-	 {
-	   WriteLog("StatusCheckerTimer:" + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------

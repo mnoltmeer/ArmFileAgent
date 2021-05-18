@@ -68,7 +68,6 @@ __published:	// IDE-managed Components
 	TPanel *ConfigManagePanel;
 	TBitBtn *RemoveConfig;
 	TBitBtn *AddConfig;
-	TTimer *StatusChecker;
 	TLabel *LbVersion;
 	TBitBtn *RefreshLog;
 	TLabel *Label2;
@@ -90,7 +89,6 @@ __published:	// IDE-managed Components
 	void __fastcall RemoveConfigClick(TObject *Sender);
 	void __fastcall PPShowWindowClick(TObject *Sender);
 	void __fastcall PPCloseClick(TObject *Sender);
-	void __fastcall StatusCheckerTimer(TObject *Sender);
 	void __fastcall MainPopupMenuPopup(TObject *Sender);
 	void __fastcall LogFilterDropDown(TObject *Sender);
 	void __fastcall TrayIconDblClick(TObject *Sender);
@@ -101,7 +99,6 @@ private:	// User declarations
 	int __fastcall ReadTmpCfg(String cfg);
 	int __fastcall ReadServerList();
 	int __fastcall ReadRemoteVersion();
-	int __fastcall AskToClient(const wchar_t *host, int port, TStringStream *rw_bufer);
 	int __fastcall SendToClient(const wchar_t *host, int port, TStringStream *rw_bufer);
     int __fastcall SendToClient(const wchar_t *host, int port, const String &data);
 	TIdTCPClient* __fastcall CreateSender(const wchar_t *host, int port);
@@ -120,7 +117,8 @@ public:		// User declarations
 	void __fastcall WriteLog(String record);
     void __fastcall ShowClientInfo(const String &station, const String &index,
 								   const String &host, const String &port);
-    void __fastcall ClearClientInfo();
+	void __fastcall ClearClientInfo();
+    int __fastcall AskToClient(const wchar_t *host, int port, TStringStream *rw_bufer);
 };
 //---------------------------------------------------------------------------
 extern PACKAGE TServerForm *ServerForm;

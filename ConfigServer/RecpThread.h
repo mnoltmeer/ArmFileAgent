@@ -1,5 +1,5 @@
 /*!
-Copyright 2020 Maxim Noltmeer (m.noltmeer@gmail.com)
+Copyright 2020-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 */
 //---------------------------------------------------------------------------
 #ifndef RecpThreadH
@@ -12,18 +12,18 @@ Copyright 2020 Maxim Noltmeer (m.noltmeer@gmail.com)
 class TRecpientCollectionThread : public TThread
 {
 private:
-	TRecpientItemCollection *ACollection;
-	bool AChanged;
-	int AInterval;
+	TRecpientItemCollection *FCollection;
+	bool FChanged;
+	int FInterval;
 
 protected:
 	void __fastcall Execute();
 public:
 	__fastcall TRecpientCollectionThread(bool CreateSuspended);
 
-	__property TRecpientItemCollection *Collection = {read = ACollection, write = ACollection};
-	__property bool CollectionChanged = {read = AChanged, write = AChanged};
-	__property int CheckInterval = {read = AInterval, write = AInterval};
+	__property TRecpientItemCollection *Collection = {read = FCollection, write = FCollection};
+	__property bool CollectionChanged = {read = FChanged, write = FChanged};
+	__property int CheckInterval = {read = FInterval, write = FInterval};
 };
 //---------------------------------------------------------------------------
 #endif
