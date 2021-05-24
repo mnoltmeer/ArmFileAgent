@@ -98,11 +98,15 @@ TExchangeConnect * TConnectionManager::Add(String cfg_file, TThreadSafeLog *Log)
 
   try
 	 {
-	   res = new TExchangeConnect(cfg_file, GenConnectionID(), Log);
-	   FConns.push_back(res);
+	   if (!Find(cfg_file))
+		 {
+		   res = new TExchangeConnect(cfg_file, GenConnectionID(), Log);
+		   FConns.push_back(res);
+		 }
 	 }
   catch (Exception &e)
 	 {
+	   res = NULL;
 	   throw new Exception("TConnectionManager::Add: " + e.ToString());
 	 }
 

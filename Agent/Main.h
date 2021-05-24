@@ -80,9 +80,6 @@ private:	// User declarations
 	void __fastcall ShowInfoMsg(String textr);
 	void __fastcall CheckConfig(String cfg_file);
 
-	void __fastcall RunWork(TExchangeConnect *server);
-	void __fastcall EndWork(TExchangeConnect *server);
-
 	bool __fastcall GuardianRunning();
 	int __fastcall RunGuardian();
 

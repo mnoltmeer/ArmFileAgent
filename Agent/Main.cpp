@@ -875,31 +875,47 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 			  {
 				int ind = list->Strings[1].ToInt();
 
-				TExchangeConnect *srv = ConnManager->Find(ind);
-
-				if (srv)
+				if (ind == 0)
 				  {
-					TAMThread *th = ConnManager->FindThread(srv->ThreadID);
-
-					if (th)
-					  th->PassedTime = srv->Config->MonitoringInterval;
-
-					if (!srv->Working())
-					  ConnManager->Run(srv);
-				  }
+                    for (int i = 0; i < ConnManager->ConnectionCount; i++)
+					   ConnManager->Run(ConnManager->Connections[i]);
+                  }
 				else
-				  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
+				  {
+					TExchangeConnect *srv = ConnManager->Find(ind);
+
+					if (srv)
+					  {
+						TAMThread *th = ConnManager->FindThread(srv->ThreadID);
+
+						if (th)
+						  th->PassedTime = srv->Config->MonitoringInterval;
+
+						if (!srv->Working())
+					  	  ConnManager->Run(srv);
+					  }
+					else
+					  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
+				  }
 			  }
 			else if (list->Strings[0] == "#stop")
 			  {
 				int ind = list->Strings[1].ToInt();
 
-				TExchangeConnect *srv = ConnManager->Find(ind);
-
-				if (srv)
-				  ConnManager->Stop(srv);
+                if (ind == 0)
+				  {
+                    for (int i = 0; i < ConnManager->ConnectionCount; i++)
+					   ConnManager->Stop(ConnManager->Connections[i]);
+                  }
 				else
-				  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
+				  {
+					TExchangeConnect *srv = ConnManager->Find(ind);
+
+					if (srv)
+					  ConnManager->Stop(srv);
+					else
+				  	  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
+				  }
 			  }
 			else if (list->Strings[0] == "#restart")
 			  {
@@ -969,32 +985,6 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 		  }
 	 }
   __finally {delete list; delete ms;}
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TMainForm::RunWork(TExchangeConnect *server)
-{
-  try
-	{
-	  ConnManager->Run(server);
-	}
-  catch (Exception &e)
-	{
-	  Log->Add("RunWork: " + e.ToString());
-	}
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TMainForm::EndWork(TExchangeConnect *server)
-{
-  try
-	{
-	  ConnManager->Stop(server);
-	}
-  catch (Exception &e)
-	{
-	  Log->Add("EndWork: " + e.ToString());
-	}
 }
 //---------------------------------------------------------------------------
 
@@ -1699,6 +1689,9 @@ TExchangeConnect* __fastcall TMainForm::CreateConnection(String file)
 	 {
 	   res = ConnManager->Add(file, Log);
 
+	   if (!res)
+		 throw new Exception("З'єднання з конфігу " + file + " вже існує");
+
 	   if (!res->Initialized())
 		 {
 		   ConnManager->Remove(res);
@@ -1866,13 +1859,13 @@ void __fastcall TMainForm::RemoveConnection(int id)
 
 void __fastcall TMainForm::StartConnection(int id)
 {
-  RunWork(ConnManager->Find(id));
+  ConnManager->Run(ConnManager->Find(id));
 }
 //---------------------------------------------------------------------------
 
 void __fastcall TMainForm::StopConnection(int id)
 {
-  EndWork(ConnManager->Find(id));
+  ConnManager->Stop(ConnManager->Find(id));
 }
 //---------------------------------------------------------------------------
 
