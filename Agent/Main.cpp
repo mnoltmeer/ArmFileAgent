@@ -11,7 +11,6 @@ Copyright 2020-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 
 #include "TConfigLoaderThread.h"
 #include "TConnectionManager.h"
-//#include "TAURAConnectThread.h"
 #include "FirstStart.h"
 #include "Main.h"
 //---------------------------------------------------------------------------
@@ -33,8 +32,6 @@ TThreadSafeLog *Log;
 TConnectionManager *ConnManager;
 
 TConfigLoaderThread *ConfigLoader;
-
-//TAURAConnectThread *AURAConnector;
 
 HINSTANCE dllhandle;
 
@@ -1135,7 +1132,6 @@ void __fastcall TMainForm::StartApplication()
 	  WriteModulePath();
 
 	  AURAServer->DefaultPort = RemAdmPort;
-	  //AURAConnector = new TAURAConnectThread(AURAServer);
       AURAServer->Active = true;
 	  SaveLogTimer->Enabled = true;
 
@@ -1161,9 +1157,6 @@ void __fastcall TMainForm::StopApplication()
 	 {
 	   LbStatus->Caption = "«упинено";
 	   LbStatus->Font->Color = clRed;
-
-	   //if (AURAConnector)
-		 //AURAConnector->Terminate();
 
 	   AURAServer->Active = false;
 
