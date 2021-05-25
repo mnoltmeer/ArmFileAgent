@@ -110,6 +110,7 @@ private:	// User declarations
 	void __fastcall ReadSettings();
 	void __fastcall ExportAddrAndLinks(const String &file);
 	void __fastcall ImportAddrAndLinks(const String &file);
+    void __fastcall ExportHostStatus(const String &file);
 
 public:		// User declarations
 	__fastcall TServerForm(TComponent* Owner);

@@ -322,6 +322,43 @@ int __fastcall TAURAForm::ReadRemoteVersion()
 }
 //---------------------------------------------------------------------------
 
+void __fastcall TAURAForm::ImportHostStatus(const String &file)
+{
+  try
+	 {
+	   TFileStream *fs = new TFileStream(file, fmOpenRead);
+	   unsigned int id, status;
+	   RecipientItem *itm;
+
+	   try
+		  {
+			while (fs->Position < fs->Size)
+			  {
+				fs->Position += fs->Read(&id, sizeof(unsigned int));
+				fs->Position += fs->Read(&status, sizeof(unsigned int));
+
+				itm = AddrBook->FindItem(id);
+
+				if (itm)
+				  {
+					if (status)
+					  itm->Node->StateIndex = 1;
+					else
+					  itm->Node->StateIndex = 2;
+				  }
+			  }
+
+			AddActionLog("Імпорт статусів завершено");
+		  }
+       __finally {delete fs;}
+	 }
+  catch (Exception &e)
+	 {
+	   AddActionLog("Імпорт статусів: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
 void __fastcall TAURAForm::HostKeyPress(TObject *Sender, System::WideChar &Key)
 {
   if (Key == 13)
@@ -1219,10 +1256,20 @@ void __fastcall TAURAForm::LoadAddrBookFromServerClick(TObject *Sender)
 				AddrBookChecker->Suspend();
 				Sleep(100);
 				ms->SaveToFile(DataDir + "\\address.grp");
-                AddrBook->Clear();
+				AddrBook->Clear();
 				AddrBook->LoadFromFile(DataDir + "\\address.grp");
                 AddrBook->CreateSortedTree(AddrList);
 				AddrBookChecker->Resume();
+			  }
+
+			ms->Clear();
+			ms->WriteString("#gethoststatus");
+			ms->Position = 0;
+
+            if (AskToServer(CfgServerHost->Text.c_str(), CfgServerPort->Text.ToInt(), ms) == 0)
+			  {
+				ms->SaveToFile(DataDir + "\\hosts.sts");
+				ImportHostStatus(DataDir + "\\hosts.sts");
 			  }
 		  }
 	   __finally {delete ms;}

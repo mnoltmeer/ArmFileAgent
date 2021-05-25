@@ -672,6 +672,42 @@ void __fastcall TServerForm::ExportFromAddrBookClick(TObject *Sender)
 }
 //---------------------------------------------------------------------------
 
+void __fastcall TServerForm::ExportHostStatus(const String &file)
+{
+  try
+	 {
+	   TFileStream *fs = new TFileStream(file, fmOpenWrite|fmCreate);
+	   unsigned int id, status;
+
+	   try
+		  {
+			for (int i = 0; i < AddrBook->Count; i++)
+			   {
+				 if (AddrBook->Items[i]->ParentNodeID != 0)
+				   {
+                     id = AddrBook->Items[i]->ID;
+
+					 if (AddrBook->Items[i]->Node->StateIndex == 3)
+					   status = 1;
+					 else
+					   status = 0;
+
+					 fs->Position += fs->Write(&id, sizeof(unsigned int));
+				 	 fs->Position += fs->Write(&status, sizeof(unsigned int));
+				   }
+			   }
+
+			WriteLog("Експорт статусів завершено");
+		  }
+       __finally {delete fs;}
+	 }
+  catch (Exception &e)
+	 {
+	   WriteLog("Експорт статусів: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
 void __fastcall TServerForm::StartServer()
 {
   try
@@ -916,6 +952,20 @@ void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 			else if (list->Strings[0] == "#getaddrbook")
 			  {
 				TFileStream *fs = new TFileStream(DataDir + "\\hosts.grp",
+												  fmOpenRead|fmShareDenyNone);
+
+				try
+				   {
+					 fs->Position = 0;
+					 AContext->Connection->IOHandler->Write(fs, fs->Size, true);
+				   }
+				__finally {delete fs;}
+			  }
+			else if (list->Strings[0] == "#gethoststatus")
+			  {
+				ExportHostStatus(DataDir + "\\hosts.sts");
+
+				TFileStream *fs = new TFileStream(DataDir + "\\hosts.sts",
 												  fmOpenRead|fmShareDenyNone);
 
 				try

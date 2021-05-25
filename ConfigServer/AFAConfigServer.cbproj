@@ -176,8 +176,8 @@
             <DependentOn>..\..\work-functions\MyFunc.h</DependentOn>
             <BuildOrder>4</BuildOrder>
         </CppCompile>
-        <FormResources Include="Main.dfm"/>
         <FormResources Include="Settings.dfm"/>
+        <FormResources Include="Main.dfm"/>
         <FormResources Include="AddGroup.dfm"/>
         <FormResources Include="AddRecord.dfm"/>
         <BuildConfiguration Include="Release">

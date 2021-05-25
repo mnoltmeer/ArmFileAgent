@@ -21,6 +21,8 @@ Copyright 2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 #include <Vcl.ComCtrls.hpp>
 #include <Vcl.ExtCtrls.hpp>
 #include <Vcl.Menus.hpp>
+#include <System.ImageList.hpp>
+#include <Vcl.ImgList.hpp>
 
 //---------------------------------------------------------------------------
 class TAURAForm : public TForm
@@ -88,6 +90,7 @@ __published:	// IDE-managed Components
 	TEdit *CfgServerPort;
 	TBitBtn *LoadAddrBookFromServer;
 	TButton *SendCheckUpds;
+	TImageList *MenuImages;
 	void __fastcall ConnectClick(TObject *Sender);
 	void __fastcall PortClick(TObject *Sender);
 	void __fastcall ReadCfgClick(TObject *Sender);
@@ -139,6 +142,7 @@ private:	// User declarations
 	void __fastcall FreeSender(TIdTCPClient *sender);
     void __fastcall SenderConnected(TObject *Sender);
 	void __fastcall SenderDisconnected(TObject *Sender);
+    void __fastcall ImportHostStatus(const String &file);
 
 public:		// User declarations
 	__fastcall TAURAForm(TComponent* Owner);
