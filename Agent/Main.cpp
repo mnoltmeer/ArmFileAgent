@@ -1087,6 +1087,25 @@ void __fastcall TMainForm::SaveLogTimerTimer(TObject *Sender)
 }
 //---------------------------------------------------------------------------
 
+void __fastcall TMainForm::AURAStartTimerTimer(TObject *Sender)
+{
+  try
+	{
+	  AURAServer->Active = true;
+
+	  if (AURAServer->Active)
+		{
+		  Log->Add("Сервер службових команд запущено");
+		  AURAStartTimer->Enabled = false;
+		}
+	}
+  catch (Exception &e)
+	{
+	  Log->Add("Старт серверу службових команд: " + e.ToString());
+	}
+}
+//---------------------------------------------------------------------------
+
 void __fastcall TMainForm::StartApplication()
 {
   ConnManager->InfoIcon = TrayIcon;
@@ -1132,8 +1151,8 @@ void __fastcall TMainForm::StartApplication()
 	  WriteModulePath();
 
 	  AURAServer->DefaultPort = RemAdmPort;
-      AURAServer->Active = true;
 	  SaveLogTimer->Enabled = true;
+      AURAStartTimer->Enabled = true;
 
 	  if (!WaitForLoadFromServer(2000))
 		{
@@ -1162,6 +1181,7 @@ void __fastcall TMainForm::StopApplication()
 
 	   Log->Add("Кінець роботи");
 
+	   AURAStartTimer->Enabled = false;
 	   SaveLogTimer->Enabled = false;
 
        Log->SaveToFile(LogPath + "\\" + LogName);
@@ -1430,8 +1450,6 @@ int __fastcall TMainForm::ASendVersion(TIdContext *AContext)
 
 int __fastcall TMainForm::ASendStatusAnswer(TIdContext *AContext)
 {
-  Log->Add("FARA: запит статусу Агента");
-
   TStringStream *ms = new TStringStream("#ok", TEncoding::UTF8, true);
   int res = -1;
 
@@ -2747,4 +2765,5 @@ void __fastcall TMainForm::WndProc(Messages::TMessage& Msg)
   TForm::WndProc(Msg);
 }
 //---------------------------------------------------------------------------
+
 

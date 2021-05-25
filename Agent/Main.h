@@ -65,12 +65,14 @@ __published:	// IDE-managed Components
 	TMenuItem *IconPP5;
 	TLabel *Label1;
 	TLabel *ModuleVersion;
+	TTimer *AURAStartTimer;
 	void __fastcall IconPP1Click(TObject *Sender);
 	void __fastcall AURAServerExecute(TIdContext *AContext);
 	void __fastcall SaveLogTimerTimer(TObject *Sender);
 	void __fastcall IconPPConnClick(TObject *Sender);
 	void __fastcall FormDestroy(TObject *Sender);
 	void __fastcall FormCreate(TObject *Sender);
+	void __fastcall AURAStartTimerTimer(TObject *Sender);
 
 private:	// User declarations
 	TList *MenuItemList;

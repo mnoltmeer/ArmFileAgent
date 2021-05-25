@@ -5,7 +5,7 @@ object MainForm: TMainForm
   BorderStyle = bsSingle
   Caption = #1060#1072#1081#1083#1086#1074#1080#1081' '#1072#1075#1077#1085#1090' '#1040#1056#1052' '#1042#1047
   ClientHeight = 44
-  ClientWidth = 227
+  ClientWidth = 306
   Color = clBtnFace
   TransparentColorValue = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -5748,5 +5748,11 @@ object MainForm: TMainForm
     Interval = 120000
     OnTimer = SaveLogTimerTimer
     Left = 176
+  end
+  object AURAStartTimer: TTimer
+    Enabled = False
+    Interval = 60000
+    OnTimer = AURAStartTimerTimer
+    Left = 224
   end
 end
