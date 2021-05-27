@@ -281,7 +281,7 @@ void __fastcall TMainForm::Migration()
 
 	   if (autorun)
 		 AddAppAutoStart("ArmFileAgent", Application->ExeName, autorun_all);
-	   else if (ParamStr(7) == "-noauto")
+	   else
 		 {
 		   if (autorun_all)
 			 RemoveAppAutoStart("ArmFileAgent", FOR_ALL_USERS);
@@ -298,23 +298,24 @@ void __fastcall TMainForm::Migration()
 
 	   Log->Add("Реєстраційні дані Агента додані у систему");
 
-       if (CheckAppAutoStart("ArmFileManager", FOR_ALL_USERS))
-		 RemoveAppAutoStart("ArmFileManager", FOR_ALL_USERS);
-	   else if (CheckAppAutoStart("ArmFileManager", FOR_CURRENT_USER))
-		 RemoveAppAutoStart("ArmFileManager", FOR_CURRENT_USER);
+	   bool removed_mngr = false;
 
-	   Log->Add("Реєстраційні дані Менеджеру файлів АРМ ВЗ видалені із системи");
+       if (CheckAppAutoStart("ArmFileManager", FOR_ALL_USERS))
+		 removed_mngr = RemoveAppAutoStart("ArmFileManager", FOR_ALL_USERS);
+	   else if (CheckAppAutoStart("ArmFileManager", FOR_CURRENT_USER))
+		 removed_mngr = RemoveAppAutoStart("ArmFileManager", FOR_CURRENT_USER);
+
+	   if (removed_mngr)
+		 Log->Add("Реєстраційні дані Менеджеру із системи");
+	   else
+		 Log->Add("Не вдалося видалити реєстраційні дані Менеджеру!");
 
        HWND handle = FindHandleByName(L"Менеджер обміну файлами АРМ ВЗ");
 
 	   if (handle)
 		 {
 		   Log->Add("Спроба завершити роботу Guardian Менеджера");
-
-		   PostMessage(handle, WM_QUIT, 0, 0);
-
-		   if (!WaitForAppClose(L"Guardian Менеджера обміну файлами АРМ ВЗ", 5000))
-			 ShutdownProcessByExeName("ArmMngrGuard.exe");
+		   ShutdownProcessByExeName("ArmMngrGuard.exe");
 		 }
 
        handle = FindHandleByName(L"Менеджер обміну файлами АРМ ВЗ");
@@ -322,14 +323,10 @@ void __fastcall TMainForm::Migration()
 	   if (handle)
 		 {
 		   Log->Add("Спроба завершити роботу Менеджера");
-
-		   PostMessage(handle, WM_QUIT, 0, 0);
-
-		   if (!WaitForAppClose(L"Менеджер обміну файлами АРМ ВЗ", 5000))
-			 ShutdownProcessByExeName("ArmMngr.exe");
+		   ShutdownProcessByExeName("ArmMngr.exe");
 		 }
 
-       Sleep(2000);
+       Sleep(3000);
 	 }
   catch (Exception &e)
 	 {
@@ -360,12 +357,17 @@ void __fastcall TMainForm::Unregistration()
 		  }
 	   __finally {delete reg;}
 
-	   if (CheckAppAutoStart("ArmFileAgent", FOR_ALL_USERS))
-		 RemoveAppAutoStart("ArmFileAgent", FOR_ALL_USERS);
-	   else if (CheckAppAutoStart("ArmFileAgent", FOR_CURRENT_USER))
-		 RemoveAppAutoStart("ArmFileAgent", FOR_CURRENT_USER);
+	   bool remove_agent = false;
 
-	   Log->Add("Реєстраційні дані Агента видалені із системи");
+	   if (CheckAppAutoStart("ArmFileAgent", FOR_ALL_USERS))
+		 remove_agent = RemoveAppAutoStart("ArmFileAgent", FOR_ALL_USERS);
+	   else if (CheckAppAutoStart("ArmFileAgent", FOR_CURRENT_USER))
+		remove_agent =  RemoveAppAutoStart("ArmFileAgent", FOR_CURRENT_USER);
+
+	   if (remove_agent)
+		 Log->Add("Реєстраційні дані Агента із системи");
+	   else
+		 Log->Add("Не вдалося видалити реєстраційні дані Агента!");
 
 	   ShutdownGuardian();
 

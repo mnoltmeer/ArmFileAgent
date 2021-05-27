@@ -19,7 +19,7 @@ __fastcall TAMThread::TAMThread(bool CreateSuspended)
 //---------------------------------------------------------------------------
 void __fastcall TAMThread::Execute()
 {
-  Synchronize(&ShowInfoStatus);
+  //Synchronize(&ShowInfoStatus);
 
   try
 	 {
