@@ -98,6 +98,8 @@ private:	// User declarations
 
 	void __fastcall LoadFunctionsToELI();
 	void __fastcall StopApplication();
+	void __fastcall CreateResources();
+	void __fastcall ReleaseResources();
 
 	TExchangeConnect* __fastcall CreateConnection(String file);
 	void __fastcall FirstStartInitialisation(int type);

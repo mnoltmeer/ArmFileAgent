@@ -58,32 +58,7 @@ const wchar_t *MainParams[MainPrmCnt] = {L"MailFrom",
 __fastcall TMainForm::TMainForm(TComponent* Owner)
 	: TForm(Owner)
 {
-  UsedAppLogDir = "AFAgent\\Log";
-
-  AppPath = GetDirPathFromFilePath(Application->ExeName);
-  AppName = GetFileNameFromFilePath(Application->ExeName);
-
-  DataPath = GetEnvironmentVariable("USERPROFILE") + "\\Documents\\AFAgent";
-  LogPath = DataPath + "\\Log";
-  DataPath += "\\Data";
-
-  if (!DirectoryExists(DataPath))
-	ForceDirectories(DataPath);
-
-  if (!DirectoryExists(LogPath))
-	CreateDir(LogPath);
-
-  AppVersion = GetVersionInString(Application->ExeName.c_str());
-  ModuleVersion->Caption = AppVersion;
-  TrayIcon->Hint = Caption;
-
-  DateStart = Date().CurrentDate();
-  LogName = DateToStr(Date()) + ".log";
-
-  MenuItemList = new TList();
-  Log = new TThreadSafeLog();
-  ConnManager = new TConnectionManager();
-  ConfigLoader = new TConfigLoaderThread(true);
+  CreateResources();
 }
 //---------------------------------------------------------------------------
 
@@ -115,41 +90,90 @@ void __fastcall TMainForm::FormDestroy(TObject *Sender)
 {
   try
 	 {
-       try
+	   try
 		  {
 			StopApplication();
-
-            if (ConfigLoader && ConfigLoader->Started)
-			  {
-				ConfigLoader->Terminate();
-
-				while (!ConfigLoader->Finished)
-				  Sleep(100);
-
-				delete ConfigLoader;
-			  }
-
-			ReleaseELI();
-
-			delete ConnManager;
-
-			for (int i = 0; i < MenuItemList->Count; i++)
-			   {
-				 TMenuItem *m = reinterpret_cast<TMenuItem*>(MenuItemList->Items[i]);
-				 delete m;
-			   }
-
-	   		delete MenuItemList;
+			ReleaseResources();
 		  }
 	   catch (Exception &e)
 		  {
-	   		Log->Add(e.ToString());
+			Log->Add(e.ToString());
 		  }
 	 }
   __finally
 	 {
 //відписуємось від розсилки повідомлень WM_WTSSESSION_CHANGE
 	   WTSUnRegisterSessionNotification(this->Handle);
+	 }
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TMainForm::CreateResources()
+{
+  try
+	 {
+       UsedAppLogDir = "AFAgent\\Log";
+
+	   AppPath = GetDirPathFromFilePath(Application->ExeName);
+	   AppName = GetFileNameFromFilePath(Application->ExeName);
+
+	   DataPath = GetEnvironmentVariable("USERPROFILE") + "\\Documents\\AFAgent";
+	   LogPath = DataPath + "\\Log";
+	   DataPath += "\\Data";
+
+	   if (!DirectoryExists(DataPath))
+		 ForceDirectories(DataPath);
+
+	   if (!DirectoryExists(LogPath))
+	     CreateDir(LogPath);
+
+	   AppVersion = GetVersionInString(Application->ExeName.c_str());
+	   ModuleVersion->Caption = AppVersion;
+	   TrayIcon->Hint = Caption;
+
+	   DateStart = Date().CurrentDate();
+	   LogName = DateToStr(Date()) + ".log";
+
+	   MenuItemList = new TList();
+	   Log = new TThreadSafeLog();
+	   ConnManager = new TConnectionManager();
+	   ConfigLoader = new TConfigLoaderThread(true);
+	 }
+  catch (Exception &e)
+	 {
+	   Log->Add("Створення ресурсів: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TMainForm::ReleaseResources()
+{
+  try
+	 {
+	   if (ConfigLoader)
+		 {
+		   if (ConfigLoader->Started)
+			 {
+			   ConfigLoader->Terminate();
+
+			   while (!ConfigLoader->Finished)
+				 Sleep(100);
+			 }
+
+		   delete ConfigLoader;
+		 }
+
+	   ReleaseELI();
+
+	   delete ConnManager;
+
+	   for (int i = 0; i < MenuItemList->Count; i++)
+		  {
+			TMenuItem *m = reinterpret_cast<TMenuItem*>(MenuItemList->Items[i]);
+			delete m;
+		  }
+
+	   delete MenuItemList;
 
 	   if (SendReportToMail)
 		 SendLog(MailTo, MailSubjectOK, MailFrom, Log->GetText());
@@ -157,6 +181,10 @@ void __fastcall TMainForm::FormDestroy(TObject *Sender)
 	   Log->SaveToFile(LogPath + "\\" + LogName);
 
 	   delete Log;
+	 }
+  catch (Exception &e)
+	 {
+	   Log->Add("Вивільнення ресурсів: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -1137,22 +1165,59 @@ void __fastcall TMainForm::StartApplication()
   else if (ParamStr(1) == "-unreg")
 	{
 	  Unregistration();
+	  ReleaseResources();
 	  Application->Terminate();
 
 	  return;
 	}
   else if (ParamStr(1) == "-firewall-add")
-	AddFirewallRule();
-  else if (ParamStr(1) == "-firewall-rem")
-	RemoveFirewallRule();
-  else if (ParamStr(1) == "-auto-all")
-	AddAppAutoStart("ArmFileAgent", Application->ExeName, FOR_ALL_USERS);
-  else if (ParamStr(7) == "-auto-curr")
-	AddAppAutoStart("ArmFileAgent", Application->ExeName, FOR_CURRENT_USER);
-  else if (ParamStr(7) == "-noauto")
 	{
-	  RemoveAppAutoStart("ArmFileAgent", FOR_ALL_USERS);
-	  RemoveAppAutoStart("ArmFileAgent", FOR_CURRENT_USER);
+	  AddFirewallRule();
+	  ReleaseResources();
+	  Application->Terminate();
+
+	  return;
+	}
+  else if (ParamStr(1) == "-firewall-rem")
+	{
+	  RemoveFirewallRule();
+	  ReleaseResources();
+	  Application->Terminate();
+
+	  return;
+	}
+  else if (ParamStr(1) == "-auto-all")
+	{
+	  if (AddAppAutoStart("ArmFileAgent", Application->ExeName, FOR_ALL_USERS))
+		Log->Add("HKLM: Створено ключ автозапуску");
+
+	  ReleaseResources();
+	  Application->Terminate();
+
+	  return;
+	}
+  else if (ParamStr(1) == "-auto-curr")
+	{
+	  if (AddAppAutoStart("ArmFileAgent", Application->ExeName, FOR_CURRENT_USER))
+		Log->Add("HKCU: Створено ключ автозапуску");
+
+	  ReleaseResources();
+	  Application->Terminate();
+
+	  return;
+	}
+  else if (ParamStr(1) == "-noauto")
+	{
+	  if (RemoveAppAutoStart("ArmFileAgent", FOR_ALL_USERS))
+		Log->Add("HKLM: Видалено ключ автозапуску");
+
+	  if (RemoveAppAutoStart("ArmFileAgent", FOR_CURRENT_USER))
+		Log->Add("HKCU: Видалено ключ автозапуску");
+
+	  ReleaseResources();
+	  Application->Terminate();
+
+	  return;
 	}
 
   int settings = ReadSettings();
