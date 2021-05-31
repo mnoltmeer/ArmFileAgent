@@ -38,13 +38,12 @@
 			<Add option="-Wall" />
 			<Add option="-fexceptions" />
 		</Compiler>
-		<Unit filename="../../work-functions/somefunc.h" />
+		<Unit filename="../../../work-functions/somefunc.h" />
+		<Unit filename="client.cpp" />
+		<Unit filename="client.h" />
 		<Unit filename="main.cpp" />
 		<Unit filename="main.h" />
 		<Extensions>
-			<code_completion />
-			<envvars />
-			<debugger />
 			<lib_finder disable_auto="1" />
 		</Extensions>
 	</Project>

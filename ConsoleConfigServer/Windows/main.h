@@ -1,7 +1,9 @@
 #ifndef MAIN_H_INCLUDED
 #define MAIN_H_INCLUDED
 
-#define BUFFSIZE 1024
+#include "client.h"
+
+#define BUFFSIZE 4096
 #define FR "get from"
 #define TO "send to"
 #define SYS "SYSTEM EVENT"
@@ -9,9 +11,8 @@
 
 #define CL_IP 1
 #define CL_HOST 2
-#define CL_NICK 3
+#define CL_INDEX 3
 #define CL_STATUS 4
-#define CL_OPTION 5
 
 const char *ADMINPASS = "morte";
 
@@ -21,43 +22,18 @@ int InitSock();
 
 int Loop();
 
-// прототип функции, обслуживающий
-// подключившихся пользователей
-DWORD WINAPI ServClient(LPVOID client_socket);
+//функція для окремого потоку, виконує обмін даними з клієнтом
+unsigned WINAPI ServClient(void *client_socket);
 
 void PrintLog(char *type, const char *ip, const char *nick, char *message);
-
 void PrintLog(char *message);
 
-//возвращает список пользователей (для статистики сервера)
-const char *PrintUsersTable();
-
-//возвращает список подключенных клиентов
-//(форматированный для вывода на экран, передается клиентам)
-const char *GetClientList();
-
-UINT DelClient(SOCKET s);
-
-UINT UpdClientInfo(SOCKET cl_socket, UINT, const char* param_val);
-
-const char *GetClientIP(SOCKET s);
-
-const char *GetClientNick(SOCKET s);
-
-const char *GetClientLeader(SOCKET s);
-
-const char *GetClientStatus(SOCKET s);
-
-SOCKET GetClientSocketByNick(const char *nick);
-
-SOCKET GetClientSocketByIP(const char *ip);
-
 //отправляет данные хосту, возвращает "ложь" в случае ошибки коннекта
-bool SendToHost(SOCKET host, const char *sendstr);
+bool SendToHost(SOCKET s, const char *sendstr);
 
 //читает данные с хоста, возвращает кол-во прочитанных байт или -1 в случае ошибки
 //выводит расширенную инфу об ошибке на экран
-int ReadFromHost(SOCKET host, char *read_str);
+int ReadFromHost(SOCKET s, char *read_str);
 
 //проверяет значение во входящем буфере на соответствие триггерам
 //и формирует значение для исходящего буфера
@@ -66,13 +42,9 @@ int ReadFromHost(SOCKET host, char *read_str);
 //и SOCKET_ERROR в случае ошибки
 SOCKET Interprent(SOCKET read_sock, char *read_str, char *send_str);
 
-//проверяет свободен ли ник
-bool IsNickFree(const char *nick);
-
 void StopServer();
 
 SOCKET mysocket;
-DWORD thID;
 SOCKET client_socket;    // сокет для клиента
 sockaddr_in client_addr; // адрес клиента (заполняется системой)
 int client_addr_size;
@@ -81,28 +53,8 @@ string s_ip;
 string s_capt;
 bool restart, halt;
 char msg[256];
+unsigned thID;
 
-// глобальная переменная – количество
-// активных пользователей
-int nclients = 0;
-
-//структура, в которой хранится инфа о клиенте
-struct CLIENT
-{
-  SOCKET cl_sock;
-  char ip[16];
-  char hostname[32];
-  char nickname[16];
-  char status[8];
-  char option[12];
-};
-
-std::vector <CLIENTS> vecUList; //вектор в котором хранится таблица
-                                //подключенных клиентов
-
-// макрос для печати количества активных пользователей
-#define PRINTNUSERS if (nclients)\
-printf("\n[%d] user on-line:\n%s\n", nclients, PrintUsersTable());\
-else printf("\n[0] user on-line\n\n");
+ClientList *Clients;
 
 #endif // MAIN_H_INCLUDED

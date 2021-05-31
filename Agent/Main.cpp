@@ -195,27 +195,22 @@ void __fastcall TMainForm::FirstStartInitialisation(int type)
 		   port.Delete(1, pos);
 		   RemAdmPort = port.ToInt();
 
-		   if (ParamStr(6) == "-auto")
-			 {
-			   if (ParamStr(7) == "-all")
-				 AddAppAutoStart("ArmFileAgent", Application->ExeName, FOR_ALL_USERS);
-			   else
-				 AddAppAutoStart("ArmFileAgent", Application->ExeName, FOR_CURRENT_USER);
-			 }
-		   else if (ParamStr(6) == "-noauto")
-			 {
-			   if (ParamStr(7) == "-all")
-				 RemoveAppAutoStart("ArmFileAgent", FOR_ALL_USERS);
-			   else
-				 RemoveAppAutoStart("ArmFileAgent", FOR_CURRENT_USER);
-			 }
-
 		   WriteSettings();
 
 		   if (ParamStr(6) == "-firewall-add")
 			 AddFirewallRule();
 		   else if (ParamStr(6) == "-firewall-rem")
-		 	 RemoveFirewallRule();
+			 RemoveFirewallRule();
+
+           if (ParamStr(7) == "-auto-all")
+			 AddAppAutoStart("ArmFileAgent", Application->ExeName, FOR_ALL_USERS);
+		   else if (ParamStr(7) == "-auto-curr")
+			 AddAppAutoStart("ArmFileAgent", Application->ExeName, FOR_CURRENT_USER);
+		   else if (ParamStr(7) == "-noauto")
+			 {
+			   RemoveAppAutoStart("ArmFileAgent", FOR_ALL_USERS);
+			   RemoveAppAutoStart("ArmFileAgent", FOR_CURRENT_USER);
+			 }
          }
 	 }
   catch (Exception &e)
@@ -279,7 +274,16 @@ void __fastcall TMainForm::Migration()
 		   return;
 		 }
 
-	   if (autorun)
+	   if (ParamStr(7) == "-auto-all")
+		 AddAppAutoStart("ArmFileAgent", Application->ExeName, FOR_ALL_USERS);
+	   else if (ParamStr(7) == "-auto-curr")
+		 AddAppAutoStart("ArmFileAgent", Application->ExeName, FOR_CURRENT_USER);
+	   else if (ParamStr(7) == "-noauto")
+		 {
+           RemoveAppAutoStart("ArmFileAgent", FOR_ALL_USERS);
+		   RemoveAppAutoStart("ArmFileAgent", FOR_CURRENT_USER);
+         }
+	   else if (autorun)
 		 AddAppAutoStart("ArmFileAgent", Application->ExeName, autorun_all);
 	   else
 		 {
@@ -298,35 +302,39 @@ void __fastcall TMainForm::Migration()
 
 	   Log->Add("Реєстраційні дані Агента додані у систему");
 
-	   bool removed_mngr = false;
-
-       if (CheckAppAutoStart("ArmFileManager", FOR_ALL_USERS))
-		 removed_mngr = RemoveAppAutoStart("ArmFileManager", FOR_ALL_USERS);
-	   else if (CheckAppAutoStart("ArmFileManager", FOR_CURRENT_USER))
-		 removed_mngr = RemoveAppAutoStart("ArmFileManager", FOR_CURRENT_USER);
-
-	   if (removed_mngr)
-		 Log->Add("Реєстраційні дані Менеджеру із системи");
+	   if (CheckAppAutoStart("ArmFileManager", FOR_ALL_USERS))
+		 {
+		   if (RemoveAppAutoStart("ArmFileManager", FOR_ALL_USERS))
+			 Log->Add("HKLM: дані Менеджеру видалені із автозапуску");
+		   else
+			Log->Add("HKLM: не вдалося видалити дані Менеджеру!");
+		 }
 	   else
-		 Log->Add("Не вдалося видалити реєстраційні дані Менеджеру!");
+		 Log->Add("HKLM: не знайдено даних Менеджеру");
 
-       HWND handle = FindHandleByName(L"Менеджер обміну файлами АРМ ВЗ");
-
-	   if (handle)
+	   if (CheckAppAutoStart("ArmFileManager", FOR_CURRENT_USER))
 		 {
-		   Log->Add("Спроба завершити роботу Guardian Менеджера");
-		   ShutdownProcessByExeName("ArmMngrGuard.exe");
+		   if (RemoveAppAutoStart("ArmFileManager", FOR_CURRENT_USER))
+			 Log->Add("HKCU: дані Менеджеру видалені із автозапуску");
+		   else
+			Log->Add("HKCU: не вдалося видалити дані Менеджеру!");
 		 }
+	   else
+		 Log->Add("HKCU: не знайдено даних Менеджеру");
 
-       handle = FindHandleByName(L"Менеджер обміну файлами АРМ ВЗ");
+	   if (ShutdownProcessByExeName("ArmMngrGuard.exe"))
+		 Log->Add("Роботу Guardian Менеджера завершено");
+	   else
+		 Log->Add("Не вдалося завершити роботу Guardian Менеджера");
 
-	   if (handle)
-		 {
-		   Log->Add("Спроба завершити роботу Менеджера");
-		   ShutdownProcessByExeName("ArmMngr.exe");
-		 }
+	   Sleep(500);
 
-       Sleep(3000);
+	   if (ShutdownProcessByExeName("ArmMngr.exe"))
+		 Log->Add("Роботу Менеджера завершено");
+	   else
+		 Log->Add("Не вдалося завершити роботу Менеджера");
+
+       Sleep(1000);
 	 }
   catch (Exception &e)
 	 {
@@ -365,7 +373,7 @@ void __fastcall TMainForm::Unregistration()
 		remove_agent =  RemoveAppAutoStart("ArmFileAgent", FOR_CURRENT_USER);
 
 	   if (remove_agent)
-		 Log->Add("Реєстраційні дані Агента із системи");
+		 Log->Add("Реєстраційні дані Агента видалені із системи");
 	   else
 		 Log->Add("Не вдалося видалити реєстраційні дані Агента!");
 
@@ -1134,12 +1142,17 @@ void __fastcall TMainForm::StartApplication()
 	  return;
 	}
   else if (ParamStr(1) == "-firewall-add")
-	{
-	  AddFirewallRule();
-	}
+	AddFirewallRule();
   else if (ParamStr(1) == "-firewall-rem")
+	RemoveFirewallRule();
+  else if (ParamStr(1) == "-auto-all")
+	AddAppAutoStart("ArmFileAgent", Application->ExeName, FOR_ALL_USERS);
+  else if (ParamStr(7) == "-auto-curr")
+	AddAppAutoStart("ArmFileAgent", Application->ExeName, FOR_CURRENT_USER);
+  else if (ParamStr(7) == "-noauto")
 	{
-	  RemoveFirewallRule();
+	  RemoveAppAutoStart("ArmFileAgent", FOR_ALL_USERS);
+	  RemoveAppAutoStart("ArmFileAgent", FOR_CURRENT_USER);
 	}
 
   int settings = ReadSettings();
