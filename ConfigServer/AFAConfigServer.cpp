@@ -6,8 +6,8 @@
 //---------------------------------------------------------------------------
 #include <Vcl.Styles.hpp>
 #include <Vcl.Themes.hpp>
-USEFORM("Main.cpp", ServerForm);
 USEFORM("Settings.cpp", SettingsForm);
+USEFORM("Main.cpp", ServerForm);
 USEFORM("AddGroup.cpp", AddGroupForm);
 USEFORM("AddRecord.cpp", AddRecordForm);
 //---------------------------------------------------------------------------

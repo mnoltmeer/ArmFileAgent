@@ -31,26 +31,22 @@ int __fastcall TConfigLoaderThread::GetConfigurationFromServer()
 
   try
 	 {
-	   TStringStream *ms = new TStringStream("", TEncoding::UTF8, true);
+	   auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
 
-	   try
-		  {
-			ms->WriteString("#auth%" + StationID + "%" + IndexVZ + "%" + IntToStr(RemAdmPort));
-            ms->Position = 0;
+	   ms->WriteString("#auth%" + StationID + "%" + IndexVZ + "%" + IntToStr(RemAdmPort));
+	   ms->Position = 0;
 
-			if (AskFromHost(ConfigServerHost.c_str(), ConfigServerPort, ms))
-			  {
-				ms->Position = 0;
+	   if (AskFromHost(ConfigServerHost.c_str(), ConfigServerPort, ms.get()))
+		 {
+		   ms->Position = 0;
 
-				if (ms->Size == 0)
-				  throw new Exception("Відсутні дані");
+		   if (ms->Size == 0)
+			 throw Exception("Відсутні дані");
 
-				WorkWithFileList(ms->ReadString(ms->Size));
-			  }
-			else
-              throw new Exception("Помилка зв'язку");
-		  }
-	   __finally {delete ms;}
+		   WorkWithFileList(ms->ReadString(ms->Size));
+		 }
+	   else
+		 throw Exception("Помилка зв'язку");
 	 }
   catch (Exception &e)
 	 {
@@ -67,7 +63,7 @@ void __fastcall TConfigLoaderThread::WorkWithFileList(const String &xml_str)
   try
 	 {
 	   if (xml_str == "")
-		 throw new Exception("Перелік файлів не надійшов");
+		 throw Exception("Перелік файлів не надійшов");
 
 	   Log->Add("Надійшов перелік файлів від сервера конфігурацій. Обробка");
 
@@ -94,18 +90,18 @@ void __fastcall TConfigLoaderThread::WorkWithFileList(const String &xml_str)
 std::vector<ReceivedFile> __fastcall TConfigLoaderThread::XMLImportFileList(String xml_text)
 {
   std::vector<ReceivedFile> res;
-  TXMLDocument *ixml = new TXMLDocument(Application);
-  TStringList *lst = new TStringList();
+  auto ixml = std::make_unique<TXMLDocument>(Application);
+  auto lst = std::make_unique<TStringList>();
 
   try
 	 {
 	   if (CoInitializeEx(NULL, COINIT_MULTITHREADED) != S_OK)
-		 throw new Exception("Помилка CoInitializeEx");
+		 throw Exception("Помилка CoInitializeEx");
 
 	   try
 		  {
 			if (xml_text == "")
-              throw new Exception("Відсутні дані");
+			  throw Exception("Відсутні дані");
 
 			ixml->DOMVendor = GetDOMVendor("MSXML");
             ixml->LoadFromXML(xml_text);
@@ -137,7 +133,7 @@ std::vector<ReceivedFile> __fastcall TConfigLoaderThread::XMLImportFileList(Stri
 				   ver = "0.0.0.0";
 
 				 lst->Clear();
-				 StrToList(lst, ver, ".");
+				 StrToList(lst.get(), ver, ".");
 
 				 listfile.Version[0] = lst->Strings[0].ToInt();
 				 listfile.Version[1] = lst->Strings[1].ToInt();
@@ -152,7 +148,7 @@ std::vector<ReceivedFile> __fastcall TConfigLoaderThread::XMLImportFileList(Stri
 			Log->Add("Імпорт переліку файлів з XML: " + e.ToString());
 		  }
 	 }
-  __finally {CoUninitialize(); delete ixml; delete lst;}
+  __finally {CoUninitialize();}
 
   return res;
 }
@@ -198,32 +194,28 @@ void __fastcall TConfigLoaderThread::LoadFileFromConfigurationServer(ReceivedFil
 
   try
 	{
-	  TStringStream *ms = new TStringStream("#request%" + file->Name, TEncoding::UTF8, true);
+	  auto ms = std::make_unique<TStringStream>("#request%" + file->Name, TEncoding::UTF8, true);
 
-	   try
-		  {
-			if (AskFromHost(ConfigServerHost.c_str(), ConfigServerPort, ms))
-			  {
-				String ext = UpperCase(GetFileExtensionFromFileName(local_file));
+	   if (AskFromHost(ConfigServerHost.c_str(), ConfigServerPort, ms.get()))
+		 {
+		   String ext = UpperCase(GetFileExtensionFromFileName(local_file));
 
-				if (UpperCase(local_file) == "ELI.DLL")
-				  MainForm->ReleaseELI();
-				else if ((ext == "EXE") && (UpperCase(local_file) != UpperCase(AppName)))
-                  StopRunningModule(local_file);
+		   if (UpperCase(local_file) == "ELI.DLL")
+			 MainForm->ReleaseELI();
+		   else if ((ext == "EXE") && (UpperCase(local_file) != UpperCase(AppName)))
+		     StopRunningModule(local_file);
 
-				ms->Position = 0;
-				ms->SaveToFile(DataPath + "\\" + local_file);
+		   ms->Position = 0;
+		   ms->SaveToFile(DataPath + "\\" + local_file);
 
 //змінюємо дату та час файла на ті, що були у оригінала на сервері
-				if (SetFileDateTime(DataPath + "\\" + local_file, file->Changed) <= 0)
-				  Log->Add("Не вдалось змінити дату/час файлу: " + DataPath + "\\" + local_file);
+		   if (SetFileDateTime(DataPath + "\\" + local_file, file->Changed) <= 0)
+			 Log->Add("Не вдалось змінити дату/час файлу: " + DataPath + "\\" + local_file);
 
-				Log->Add("З серверу конфігурацій завантажено файл: " + local_file);
+		   Log->Add("З серверу конфігурацій завантажено файл: " + local_file);
 
-				ProcessLoadedFile(local_file);
-			  }
-		  }
-	   __finally {delete ms;}
+		   ProcessLoadedFile(local_file);
+		 }
 	}
   catch (Exception &e)
 	{
@@ -363,43 +355,35 @@ void __fastcall TConfigLoaderThread::RemoveUnnecessaryFiles(std::vector<Received
 	 {
 	   Log->Add("Видалення зайвих файлів");
 
-	   TStringList *check_list = new TStringList();
+	   auto check_list = std::make_unique<TStringList>();
 
-	   try
+	   for (int i = 0; i < remote_files->size(); i++)
+		  check_list->Add(GetFileNameFromFilePath(remote_files->at(i).Name));
+
+	   auto modules = std::make_unique<TStringList>();
+
+	   GetFileList(modules.get(), DataPath, "*", WITHOUT_DIRS, WITHOUT_FULL_PATH);
+
+	   bool in_list;
+
+	   for (int i = 0; i < modules->Count; i++)
 		  {
-			for (int i = 0; i < remote_files->size(); i++)
-			   check_list->Add(GetFileNameFromFilePath(remote_files->at(i).Name));
+			if (UpperCase(modules->Strings[i]) == UpperCase(AppName))
+			  continue;
 
-			TStringList *modules = new TStringList();
+			in_list = false;
 
-			try
+			for (int j = 0; j < check_list->Count; j++)
 			   {
-				  GetFileList(modules, DataPath, "*", WITHOUT_DIRS, WITHOUT_FULL_PATH);
-
-                  bool in_list;
-
-				  for (int i = 0; i < modules->Count; i++)
-					 {
-					   if (UpperCase(modules->Strings[i]) == UpperCase(AppName))
-						 continue;
-
-					   in_list = false;
-
-					   for (int j = 0; j < check_list->Count; j++)
-						  {
-							if (UpperCase(modules->Strings[i]) == UpperCase(check_list->Strings[j]))
-							  in_list = true;
-						  }
-
-					   if (!in_list)
-						 StopRunningModule(modules->Strings[i]);
-					 }
+				 if (UpperCase(modules->Strings[i]) == UpperCase(check_list->Strings[j]))
+				   in_list = true;
 			   }
-			__finally {delete modules;}
 
-			DeleteFilesExceptList(DataPath, check_list);
+			if (!in_list)
+			  StopRunningModule(modules->Strings[i]);
 		  }
-	   __finally {delete check_list;}
+
+	   DeleteFilesExceptList(DataPath, check_list.get());
 	 }
   catch (Exception &e)
 	{
@@ -410,14 +394,14 @@ void __fastcall TConfigLoaderThread::RemoveUnnecessaryFiles(std::vector<Received
 
 void __fastcall TConfigLoaderThread::CheckAndRunExistModules()
 {
-  TStringList *files = new TStringList();
+  auto files = std::make_unique<TStringList>();
   String str;
 
   try
 	 {
-	   GetFileList(files, DataPath, "*.bat", WITHOUT_DIRS, WITHOUT_FULL_PATH);
-	   GetFileList(files, DataPath, "*.cmd", WITHOUT_DIRS, WITHOUT_FULL_PATH);
-	   GetFileList(files, DataPath, "*.exe", WITHOUT_DIRS, WITHOUT_FULL_PATH);
+	   GetFileList(files.get(), DataPath, "*.bat", WITHOUT_DIRS, WITHOUT_FULL_PATH);
+	   GetFileList(files.get(), DataPath, "*.cmd", WITHOUT_DIRS, WITHOUT_FULL_PATH);
+	   GetFileList(files.get(), DataPath, "*.exe", WITHOUT_DIRS, WITHOUT_FULL_PATH);
 
 	   for (int i = 0; i < files->Count; i++)
 		  {
@@ -432,12 +416,15 @@ void __fastcall TConfigLoaderThread::CheckAndRunExistModules()
 				   {
 					 Log->Add("Перевірка та запуск допоміжного модуля " +
 							  files->Strings[i] +
-						  	  ": " + e.ToString());
+							  ": " + e.ToString());
 				   }
 			  }
 		  }
 	 }
-  __finally {delete files;}
+  catch (Exception &e)
+	 {
+	   Log->Add("Перевірка та запуск допоміжного модуля: " + e.ToString());
+	 }
 }
 //---------------------------------------------------------------------------
 

@@ -123,6 +123,8 @@
         <UWP_CppLogo44>..\icos\server_115155.png</UWP_CppLogo44>
         <UWP_CppLogo150>..\icos\server_115155.png</UWP_CppLogo150>
         <VerInfo_Build>1</VerInfo_Build>
+        <BCC_UseClassicCompiler>false</BCC_UseClassicCompiler>
+        <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
     <ItemGroup>
         <CppCompile Include="AddGroup.cpp">
@@ -154,10 +156,6 @@
             <DependentOn>Main.h</DependentOn>
             <BuildOrder>2</BuildOrder>
         </CppCompile>
-        <CppCompile Include="RecpOrganizer.cpp">
-            <DependentOn>RecpOrganizer.h</DependentOn>
-            <BuildOrder>4</BuildOrder>
-        </CppCompile>
         <CppCompile Include="RecpThread.cpp">
             <DependentOn>RecpThread.h</DependentOn>
             <BuildOrder>5</BuildOrder>
@@ -175,6 +173,10 @@
         <CppCompile Include="..\..\work-functions\MyFunc.cpp">
             <DependentOn>..\..\work-functions\MyFunc.h</DependentOn>
             <BuildOrder>4</BuildOrder>
+        </CppCompile>
+        <CppCompile Include="..\..\work-functions\RecpOrganizer.cpp">
+            <DependentOn>..\..\work-functions\RecpOrganizer.h</DependentOn>
+            <BuildOrder>10</BuildOrder>
         </CppCompile>
         <FormResources Include="Settings.dfm"/>
         <FormResources Include="Main.dfm"/>

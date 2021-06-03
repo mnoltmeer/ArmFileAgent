@@ -41,7 +41,7 @@ void __fastcall TAMThread::Work()
   int ex_res;
 
   if (!Conn)
-  	throw new Exception("Некоректний вказівник TExchangeConnect*");
+  	throw Exception("Некоректний вказівник TExchangeConnect*");
 
   passed = Conn->Config->MonitoringInterval;
   interval = Conn->Config->MonitoringInterval;

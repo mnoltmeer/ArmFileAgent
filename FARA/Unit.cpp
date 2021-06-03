@@ -95,50 +95,46 @@ void __fastcall TAURAForm::ReadSettings()
 {
   try
 	 {
-       TRegistry *reg = new TRegistry();
+	   auto reg = std::make_unique<TRegistry>(KEY_READ);
 
-	   try
-		  {
-			reg->RootKey = HKEY_CURRENT_USER;
+	   reg->RootKey = HKEY_CURRENT_USER;
 
-			if (reg->OpenKey("Software\\FARA", false))
-			  {
-				if (reg->ValueExists("Height"))
-				  ClientHeight = reg->ReadInteger("Height");
-				else
-				  {
-					ClientHeight = 600;
-					reg->WriteInteger("Height", 600);
-				  }
+	   if (reg->OpenKey("Software\\FARA", false))
+		 {
+		   if (reg->ValueExists("Height"))
+			 ClientHeight = reg->ReadInteger("Height");
+		   else
+			 {
+			   ClientHeight = 600;
+			   reg->WriteInteger("Height", 600);
+			 }
 
-				if (reg->ValueExists("Width"))
-				  ClientWidth = reg->ReadInteger("Width");
-				else
-				  {
-					ClientWidth = 800;
-					reg->WriteInteger("Width", 800);
-				  }
+		   if (reg->ValueExists("Width"))
+			 ClientWidth = reg->ReadInteger("Width");
+		   else
+			 {
+			   ClientWidth = 800;
+			   reg->WriteInteger("Width", 800);
+			 }
 
-				if (reg->ValueExists("ConfigServerHost"))
-				  CfgServerHost->Text = reg->ReadString("ConfigServerHost");
-				else
-				  {
-					CfgServerHost->Text = "127.0.0.1";
-					reg->WriteString("ConfigServerHost", "127.0.0.1");
-				  }
+		   if (reg->ValueExists("ConfigServerHost"))
+			 CfgServerHost->Text = reg->ReadString("ConfigServerHost");
+		   else
+			 {
+			   CfgServerHost->Text = "127.0.0.1";
+			   reg->WriteString("ConfigServerHost", "127.0.0.1");
+			 }
 
-				if (reg->ValueExists("ConfigServerPort"))
-				  CfgServerPort->Text = IntToStr(reg->ReadInteger("ConfigServerPort"));
-				else
-				  {
-					CfgServerPort->Text = "7896";
-					reg->WriteInteger("ConfigServerPort", 7896);
-				  }
+		   if (reg->ValueExists("ConfigServerPort"))
+			 CfgServerPort->Text = IntToStr(reg->ReadInteger("ConfigServerPort"));
+		   else
+			 {
+			   CfgServerPort->Text = "7896";
+			   reg->WriteInteger("ConfigServerPort", 7896);
+			 }
 
-				reg->CloseKey();
-			  }
-		  }
-	   __finally {delete reg;}
+		   reg->CloseKey();
+		 }
 	 }
   catch (Exception &e)
 	 {
@@ -151,26 +147,19 @@ void __fastcall TAURAForm::WriteSettings()
 {
   try
 	 {
-       TRegistry *reg = new TRegistry();
+	   auto reg = std::make_unique<TRegistry>();
 
-	   try
-		  {
-			reg->RootKey = HKEY_CURRENT_USER;
+	   reg->RootKey = HKEY_CURRENT_USER;
 
-			if (!reg->KeyExists("Software\\FARA"))
-			  reg->CreateKey("Software\\FARA");
+	   if (reg->OpenKey("Software\\FARA", true))
+		 {
+		   reg->WriteInteger("Height", ClientHeight);
+		   reg->WriteInteger("Width", ClientWidth);
+		   reg->WriteString("ConfigServerHost", CfgServerHost->Text);
+		   reg->WriteInteger("ConfigServerPort", CfgServerPort->Text.ToInt());
 
-			if (reg->OpenKey("Software\\FARA", false))
-			  {
-				reg->WriteInteger("Height", ClientHeight);
-				reg->WriteInteger("Width", ClientWidth);
-				reg->WriteString("ConfigServerHost", CfgServerHost->Text);
-				reg->WriteInteger("ConfigServerPort", CfgServerPort->Text.ToInt());
-
-				reg->CloseKey();
-			  }
-		  }
-	   __finally {delete reg;}
+		   reg->CloseKey();
+		 }
 	 }
   catch (Exception &e)
 	 {
@@ -208,36 +197,43 @@ void __fastcall TAURAForm::ReadCfgClick(TObject *Sender)
   int id = GetConnectionID(CfgKind->Items->Strings[CfgKind->ItemIndex]);
   String msg = "#send%cfg%" + IntToStr(id);
 
-  TStringStream *ms = new TStringStream(msg, TEncoding::UTF8, true);
+  auto ms = std::make_unique<TStringStream>(msg, TEncoding::UTF8, true);
 
   try
 	 {
 	   ms->Position = 0;
 
-	   if (AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms) == 0)
+	   if (AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get()) == 0)
 		 {
 		   String recvmsg = ms->ReadString(ms->Size);
 		   ReadTmpCfg(recvmsg);
 		   ReadCfg->Hint = id;
 		 }
 	 }
-  __finally {delete ms;}
+  catch (Exception &e)
+	 {
+	   AddActionLog("ReadCfgClick: " + e.ToString());
+	 }
 }
 //---------------------------------------------------------------------------
 
 int __fastcall TAURAForm::ReadTmpCfg(String cfg)
 {
   int res = 0;
-  TStringList *lst = new TStringList();
+  auto lst = std::make_unique<TStringList>();
+
   CfgList->Strings->Clear();
 
   try
 	{
-	  StrToList(lst, cfg, "#");
-	  CfgList->Strings->AddStrings(lst);
+	  StrToList(lst.get(), cfg, "#");
+	  CfgList->Strings->AddStrings(lst.get());
 	  res = 1;
 	}
-  __finally {delete lst;}
+  catch (Exception &e)
+	 {
+	   AddActionLog("ReadTmpCfg: " + e.ToString());
+	 }
 
   return res;
 }
@@ -246,53 +242,47 @@ int __fastcall TAURAForm::ReadTmpCfg(String cfg)
 int __fastcall TAURAForm::ReadServerList()
 {
   String msg = "#send%srvlist";
-  TStringStream *ms = new TStringStream(msg, TEncoding::UTF8, true);
+  auto ms = std::make_unique<TStringStream>(msg, TEncoding::UTF8, true);
   ms->Position = 0;
 
   AddActionLog("Підключення до " + Host->Text + ":" + Port->Text);
 
-  int res = AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms);
+  int res = AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get());
 
   if (res == 0)
 	{
 	  ms->Position = 0;
 	  String recvmsg = ms->ReadString(ms->Size);
 
-	  TStringList *servers = new TStringList();
+	  auto servers = std::make_unique<TStringList>();
 
-	  try
-		 {
-		   StrToList(servers, recvmsg, "#");
+	  StrToList(servers.get(), recvmsg, "#");
 
-		   CfgKind->Clear();
-		   CfgKind->Items->Add("0: Головний");
-		   CfgKind->ItemIndex = 0;
+	  CfgKind->Clear();
+	  CfgKind->Items->Add("0: Головний");
+	  CfgKind->ItemIndex = 0;
 
-		   for (int i = 0; i < servers->Count; i++)
-			  CfgKind->Items->Add(servers->Strings[i]);
+	  for (int i = 0; i < servers->Count; i++)
+		 CfgKind->Items->Add(servers->Strings[i]);
 
-		   ServList->Clear();
-		   ServList->Items->Add("0: Усі");
-		   ServList->ItemIndex = 0;
+	  ServList->Clear();
+	  ServList->Items->Add("0: Усі");
+	  ServList->ItemIndex = 0;
 
-		   for (int i = 0; i < servers->Count; i++)
-			  ServList->Items->Add(servers->Strings[i]);
+	  for (int i = 0; i < servers->Count; i++)
+		 ServList->Items->Add(servers->Strings[i]);
 
-		   LogFilter->Clear();
-		   LogFilter->Items->Add("0: Весь лог");
-		   LogFilter->ItemIndex = 0;
+	  LogFilter->Clear();
+	  LogFilter->Items->Add("0: Весь лог");
+	  LogFilter->ItemIndex = 0;
 
-		   for (int i = 0; i < servers->Count; i++)
-			  LogFilter->Items->Add(servers->Strings[i]);
-		 }
-	  __finally {delete servers;}
+	  for (int i = 0; i < servers->Count; i++)
+		LogFilter->Items->Add(servers->Strings[i]);
 
 	  AddActionLog("Є зв'язок, отримано дані конфігурацій ");
 
 	  ReadRemoteVersion();
 	}
-
-  delete ms;
 
   return res;
 }
@@ -301,10 +291,10 @@ int __fastcall TAURAForm::ReadServerList()
 int __fastcall TAURAForm::ReadRemoteVersion()
 {
   String msg = "#send%version";
-  TStringStream *ms = new TStringStream(msg, TEncoding::UTF8, true);
+  auto ms = std::make_unique<TStringStream>(msg, TEncoding::UTF8, true);
   ms->Position = 0;
 
-  int res = AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms);
+  int res = AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get());
 
   if (res == 0)
 	{
@@ -316,8 +306,6 @@ int __fastcall TAURAForm::ReadRemoteVersion()
 		AddActionLog("Прочитано версію віддаленого модулю");
 	}
 
-  delete ms;
-
   return res;
 }
 //---------------------------------------------------------------------------
@@ -326,31 +314,28 @@ void __fastcall TAURAForm::ImportHostStatus(const String &file)
 {
   try
 	 {
-	   TFileStream *fs = new TFileStream(file, fmOpenRead);
+	   auto fs = std::make_unique<TFileStream>(file, fmOpenRead);
+
 	   unsigned int id, status;
 	   RecipientItem *itm;
 
-	   try
-		  {
-			while (fs->Position < fs->Size)
-			  {
-				fs->Position += fs->Read(&id, sizeof(unsigned int));
-				fs->Position += fs->Read(&status, sizeof(unsigned int));
+	   while (fs->Position < fs->Size)
+		 {
+		   fs->Position += fs->Read(&id, sizeof(unsigned int));
+		   fs->Position += fs->Read(&status, sizeof(unsigned int));
 
-				itm = AddrBook->FindItem(id);
+		   itm = AddrBook->FindItem(id);
 
-				if (itm)
-				  {
-					if (status)
-					  itm->Node->StateIndex = 1;
-					else
-					  itm->Node->StateIndex = 2;
-				  }
-			  }
+		   if (itm)
+			 {
+			   if (status)
+				 itm->Node->StateIndex = 1;
+			   else
+			     itm->Node->StateIndex = 2;
+			 }
+		 }
 
-			AddActionLog("Імпорт статусів завершено");
-		  }
-       __finally {delete fs;}
+	   AddActionLog("Імпорт статусів завершено");
 	 }
   catch (Exception &e)
 	 {
@@ -385,20 +370,15 @@ void __fastcall TAURAForm::GetStatusClick(TObject *Sender)
   AddActionLog("Запит статусу підключень");
 
   String msg = "#send%status";
+  auto ms = std::make_unique<TStringStream>(msg, TEncoding::UTF8, true);
 
-  TStringStream *ms = new TStringStream(msg, TEncoding::UTF8, true);
+  ms->Position = 0;
 
-  try
-	 {
-	   ms->Position = 0;
-
-	   if (AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms) == 0)
-		 {
-		   String recvmsg = ms->ReadString(ms->Size);
-		   ReadTmpCfg(recvmsg);
-		 }
-	 }
-  __finally {delete ms;}
+  if (AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get()) == 0)
+	{
+	  String recvmsg = ms->ReadString(ms->Size);
+	  ReadTmpCfg(recvmsg);
+	}
 }
 //---------------------------------------------------------------------------
 
@@ -408,15 +388,10 @@ void __fastcall TAURAForm::CmdRunClick(TObject *Sender)
 
   int id = GetConnectionID(ServList->Items->Strings[ServList->ItemIndex]);
   String msg = "#run%" + IntToStr(id);
+  auto ms = std::make_unique<TStringStream>(msg, TEncoding::UTF8, true);
 
-  TStringStream *ms = new TStringStream(msg, TEncoding::UTF8, true);
-
-  try
-	 {
-	   ms->Position = 0;
-	   SendToServer(Host->Text.c_str(), Port->Text.ToInt(), ms);
-	 }
-  __finally {delete ms;}
+  ms->Position = 0;
+  SendToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get());
 
   GetStatus->Click();
 }
@@ -428,15 +403,10 @@ void __fastcall TAURAForm::CmdStopClick(TObject *Sender)
 
   int id = GetConnectionID(ServList->Items->Strings[ServList->ItemIndex]);
   String msg = "#stop%" + IntToStr(id);
+  auto ms = std::make_unique<TStringStream>(msg, TEncoding::UTF8, true);
 
-  TStringStream *ms = new TStringStream(msg, TEncoding::UTF8, true);
-
-  try
-	 {
-	   ms->Position = 0;
-	   SendToServer(Host->Text.c_str(), Port->Text.ToInt(), ms);
-	 }
-  __finally {delete ms;}
+  ms->Position = 0;
+  SendToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get());
 
   GetStatus->Click();
 }
@@ -447,20 +417,15 @@ void __fastcall TAURAForm::GetThreadListClick(TObject *Sender)
   AddActionLog("Запит статусу потоків");
 
   String msg = "#send%thlist";
+  auto ms = std::make_unique<TStringStream>(msg, TEncoding::UTF8, true);
 
-  TStringStream *ms = new TStringStream(msg, TEncoding::UTF8, true);
+  ms->Position = 0;
 
-  try
-	 {
-	   ms->Position = 0;
-
-	   if (AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms) == 0)
-		 {
-		   String recvmsg = ms->ReadString(ms->Size);
-		   ReadTmpCfg(recvmsg);
-		 }
-	 }
-  __finally {delete ms;}
+  if (AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get()) == 0)
+	{
+	  String recvmsg = ms->ReadString(ms->Size);
+	  ReadTmpCfg(recvmsg);
+	}
 }
 //---------------------------------------------------------------------------
 
@@ -551,38 +516,28 @@ void __fastcall TAURAForm::SenderDisconnected(TObject *Sender)
 
 int __fastcall TAURAForm::AskToServer(const wchar_t *host, int port, TStringStream *rw_bufer)
 {
-  TIdTCPClient *AURAClient;
+  std::unique_ptr<TIdTCPClient> AURAClient(CreateSender(host, port));
   int res = 0;
 
   try
 	 {
-	   AURAClient = CreateSender(host, port);
+	   AURAClient->Connect();
+	   AddActionLog("Відправка буферу даних");
+	   AURAClient->IOHandler->Write(rw_bufer, rw_bufer->Size, true);
 
-	   try
-		  {
-			AURAClient->Connect();
-			AddActionLog("Відправка буферу даних");
-			AURAClient->IOHandler->Write(rw_bufer, rw_bufer->Size, true);
-
-            rw_bufer->Clear();
-			rw_bufer->Position = 0;
-
-            AddActionLog("Отримання буферу даних");
-			AURAClient->IOHandler->ReadStream(rw_bufer);
-		  }
-	   catch (Exception &e)
-		  {
-			AddActionLog(String(host) + ":" + IntToStr(port) + " : " + e.ToString());
-			res = -1;
-		  }
-
+	   rw_bufer->Clear();
 	   rw_bufer->Position = 0;
+
+	   AddActionLog("Отримання буферу даних");
+	   AURAClient->IOHandler->ReadStream(rw_bufer);
 	 }
-  __finally
+  catch (Exception &e)
 	 {
-	   if (AURAClient)
-		 FreeSender(AURAClient);
+	   AddActionLog(String(host) + ":" + IntToStr(port) + " : " + e.ToString());
+	   res = -1;
 	 }
+
+  rw_bufer->Position = 0;
 
   return res;
 }
@@ -590,32 +545,22 @@ int __fastcall TAURAForm::AskToServer(const wchar_t *host, int port, TStringStre
 
 int __fastcall TAURAForm::SendToServer(const wchar_t *host, int port, TStringStream *rw_bufer)
 {
-  TIdTCPClient *AURAClient;
+  std::unique_ptr<TIdTCPClient> AURAClient(CreateSender(host, port));
   int res = 0;
 
   try
 	 {
-	   AURAClient = CreateSender(host, port);
-
-	   try
-		  {
-			AURAClient->Connect();
-			AddActionLog("Відправка буферу даних");
-			AURAClient->IOHandler->Write(rw_bufer, rw_bufer->Size, true);
-		  }
-	   catch (Exception &e)
-		  {
-			AddActionLog(String(host) + ":" + IntToStr(port) + " : " + e.ToString());
-			res = -1;
-		  }
-
-	   rw_bufer->Clear();
+	   AURAClient->Connect();
+	   AddActionLog("Відправка буферу даних");
+	   AURAClient->IOHandler->Write(rw_bufer, rw_bufer->Size, true);
 	 }
-  __finally
+  catch (Exception &e)
 	 {
-	   if (AURAClient)
-		 FreeSender(AURAClient);
+	   AddActionLog(String(host) + ":" + IntToStr(port) + " : " + e.ToString());
+	   res = -1;
 	 }
+
+  rw_bufer->Clear();
 
   return res;
 }
@@ -630,14 +575,10 @@ void __fastcall TAURAForm::ShutdownClick(TObject *Sender)
 	{
 	  AddActionLog("Надсилання команди #shutdown");
 
-	  TStringStream *ms = new TStringStream("#shutdown", TEncoding::UTF8, true);
+	  auto ms = std::make_unique<TStringStream>("#shutdown", TEncoding::UTF8, true);
 
-	  try
-		 {
-		   ms->Position = 0;
-		   SendToServer(Host->Text.c_str(), Port->Text.ToInt(), ms);
-		 }
-	  __finally {delete ms;}
+	  ms->Position = 0;
+	  SendToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get());
 	}
 }
 //---------------------------------------------------------------------------
@@ -651,14 +592,10 @@ void __fastcall TAURAForm::RestartGuardClick(TObject *Sender)
 	{
 	  AddActionLog("Надсилання команди перезапуску Guardian");
 
-	  TStringStream *ms = new TStringStream("#restart_guard", TEncoding::UTF8, true);
+	  auto ms = std::make_unique<TStringStream>("#restart_guard", TEncoding::UTF8, true);
 
-	  try
-		 {
-		   ms->Position = 0;
-		   SendToServer(Host->Text.c_str(), Port->Text.ToInt(), ms);
-		 }
-	  __finally {delete ms;}
+	  ms->Position = 0;
+	  SendToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get());
 	}
 }
 //---------------------------------------------------------------------------
@@ -682,14 +619,10 @@ void __fastcall TAURAForm::SendCheckUpdsClick(TObject *Sender)
 {
   AddActionLog("Надсилання команди перевірки оновлень");
 
-  TStringStream *ms = new TStringStream("#checkupdate", TEncoding::UTF8, true);
+  auto ms = std::make_unique<TStringStream>("#checkupdate", TEncoding::UTF8, true);
 
-  try
-	 {
-	   ms->Position = 0;
-	   SendToServer(Host->Text.c_str(), Port->Text.ToInt(), ms);
-	 }
-  __finally {delete ms;}
+  ms->Position = 0;
+  SendToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get());
 }
 //---------------------------------------------------------------------------
 
@@ -1124,30 +1057,24 @@ void __fastcall TAURAForm::ImportInAddrBookClick(TObject *Sender)
 				   grp = AddrBook->FindGroup("Несортоване");
 				 }
 
-			   TStringList *old_book = new TStringList();
-			   TStringList *lst = new TStringList();
+			   auto old_book = std::make_unique<TStringList>();
+			   auto lst = std::make_unique<TStringList>();
 
 			   old_book->LoadFromFile(OpenCfgDialog->FileName, TEncoding::UTF8);
 
-			   try
+			   for (int i = 0; i < old_book->Count; i++)
 				  {
-					for (int i = 0; i < old_book->Count; i++)
-					   {
-						 lst->Clear();
-						 StrToList(lst, old_book->Strings[i], ";");
-                         grp = AddrBook->FindGroup("Несортоване");
-						 AddrBook->Add(grp->ID,
-									   grp->Node,
-									   lst->Strings[0],
-									   lst->Strings[1],
-									   lst->Strings[2]);
+					lst->Clear();
+					StrToList(lst.get(), old_book->Strings[i], ";");
+					grp = AddrBook->FindGroup("Несортоване");
+					AddrBook->Add(grp->ID, grp->Node, lst->Strings[0],
+													  lst->Strings[1],
+													  lst->Strings[2]);
 
-						 AddActionLog("Імпортовано запис: " + lst->Strings[0]);
-					   }
-
-                    AddActionLog("Імпорт книги завершено");
+					AddActionLog("Імпортовано запис: " + lst->Strings[0]);
 				  }
-			   __finally {delete lst; delete old_book;}
+
+			   AddActionLog("Імпорт книги завершено");
 
 			   AddrBook->Save();
 
@@ -1157,16 +1084,12 @@ void __fastcall TAURAForm::ImportInAddrBookClick(TObject *Sender)
 			 }
 		   else if (file_ext == "grp")
 			 {
-			   TRecpientItemCollection *ImportBook = new TRecpientItemCollection(OpenCfgDialog->FileName);
+			   auto ImportBook = std::make_unique<TRecpientItemCollection>(OpenCfgDialog->FileName);
 
-			   try
-				  {
-					AddrBook->ImportData(ImportBook);
-					AddrBook->CreateSortedTree(AddrList);
-					AddrBook->Save();
-					AddActionLog("Імпорт книги завершено");
-				  }
-			   __finally{delete ImportBook;}
+			   AddrBook->ImportData(ImportBook.get());
+			   AddrBook->CreateSortedTree(AddrList);
+			   AddrBook->Save();
+			   AddActionLog("Імпорт книги завершено");
 			 }
 		 }
 	  catch (Exception &e)
@@ -1244,35 +1167,30 @@ void __fastcall TAURAForm::LoadAddrBookFromServerClick(TObject *Sender)
        AddActionLog("Запит адресної книги з серверу");
 
 	   String msg = "#getaddrbook";
+	   auto ms = std::make_unique<TStringStream>(msg, TEncoding::UTF8, true);
 
-	   TStringStream *ms = new TStringStream(msg, TEncoding::UTF8, true);
+	   ms->Position = 0;
 
-	   try
-		  {
-			ms->Position = 0;
+	   if (AskToServer(CfgServerHost->Text.c_str(), CfgServerPort->Text.ToInt(), ms.get()) == 0)
+		 {
+		   AddrBookChecker->Suspend();
+		   Sleep(100);
+		   ms->SaveToFile(DataDir + "\\address.grp");
+		   AddrBook->Clear();
+		   AddrBook->LoadFromFile(DataDir + "\\address.grp");
+		   AddrBook->CreateSortedTree(AddrList);
+		   AddrBookChecker->Resume();
+		 }
 
-			if (AskToServer(CfgServerHost->Text.c_str(), CfgServerPort->Text.ToInt(), ms) == 0)
-			  {
-				AddrBookChecker->Suspend();
-				Sleep(100);
-				ms->SaveToFile(DataDir + "\\address.grp");
-				AddrBook->Clear();
-				AddrBook->LoadFromFile(DataDir + "\\address.grp");
-                AddrBook->CreateSortedTree(AddrList);
-				AddrBookChecker->Resume();
-			  }
+	   ms->Clear();
+	   ms->WriteString("#gethoststatus");
+	   ms->Position = 0;
 
-			ms->Clear();
-			ms->WriteString("#gethoststatus");
-			ms->Position = 0;
-
-            if (AskToServer(CfgServerHost->Text.c_str(), CfgServerPort->Text.ToInt(), ms) == 0)
-			  {
-				ms->SaveToFile(DataDir + "\\hosts.sts");
-				ImportHostStatus(DataDir + "\\hosts.sts");
-			  }
-		  }
-	   __finally {delete ms;}
+	   if (AskToServer(CfgServerHost->Text.c_str(), CfgServerPort->Text.ToInt(), ms.get()) == 0)
+		 {
+		   ms->SaveToFile(DataDir + "\\hosts.sts");
+		   ImportHostStatus(DataDir + "\\hosts.sts");
+		 }
 	 }
   catch (Exception &e)
 	 {
@@ -1372,50 +1290,36 @@ void __fastcall TAURAForm::RequestLog(int conn_id)
 	 {
        Log->Clear();
 	   String msg = "#send%log";
+	   auto ms = std::make_unique<TStringStream>(msg, TEncoding::UTF8, true);
 
-	   TStringStream *ms = new TStringStream(msg, TEncoding::UTF8, true);
+	   ms->Position = 0;
 
-	   try
-		  {
-			ms->Position = 0;
+	   if (AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get()) == 0)
+		 {
+		   String recvmsg = ms->ReadString(ms->Size);
+		   auto unfiltered = std::make_unique<TStringList>();
 
-			if (AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms) == 0)
-			  {
-				String recvmsg = ms->ReadString(ms->Size);
+		   StrToList(unfiltered.get(), recvmsg, "&");
 
-				TStringList *unfiltered = new TStringList();
+		   if (conn_id > 0)
+			 {
+			   auto filtered = std::make_unique<TStringList>();
 
-				try
-				   {
-					 StrToList(unfiltered, recvmsg, "&");
+			   String filter = IntToStr(conn_id);
 
-					 if (conn_id > 0)
-					   {
-						 TStringList *filtered = new TStringList();
+			   for (int i = 0; i < unfiltered->Count; i++)
+				  {
+					if (unfiltered->Strings[i].Pos("{id: " + filter + "}"))
+					  filtered->Add(unfiltered->Strings[i]);
+				  }
 
-						 try
-							{
-							  String filter = IntToStr(conn_id);
+			   Log->Lines->AddStrings(filtered.get());
+			 }
+		   else
+			 Log->Lines->AddStrings(unfiltered.get());
 
-							  for (int i = 0; i < unfiltered->Count; i++)
-								 {
-								   if (unfiltered->Strings[i].Pos("{id: " + filter + "}"))
-									 filtered->Add(unfiltered->Strings[i]);
-								 }
-
-                              Log->Lines->AddStrings(filtered);
-							}
-						 __finally {delete filtered;}
-					   }
-					 else
-					   Log->Lines->AddStrings(unfiltered);
-
-					 SendMessage(Log->Handle, WM_VSCROLL, SB_BOTTOM, 0);
-				   }
-		  		__finally {delete unfiltered;}
-			  }
-		  }
-	   __finally {delete ms;}
+		   SendMessage(Log->Handle, WM_VSCROLL, SB_BOTTOM, 0);
+		 }
 	 }
   catch (Exception &e)
 	 {

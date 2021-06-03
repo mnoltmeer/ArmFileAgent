@@ -37,24 +37,20 @@ void __fastcall TSettingsForm::ReadSettings()
 {
   try
 	 {
-	   TRegistry *reg = new TRegistry(KEY_READ);
+	   auto reg = std::make_unique<TRegistry>(KEY_READ);
 
-	   try
-		  {
-			reg->RootKey = HKEY_CURRENT_USER;
+	   reg->RootKey = HKEY_CURRENT_USER;
 
-			if (reg->OpenKey("Software\\AFAConfigServer\\Form", false))
-			  {
-				if (reg->ValueExists("HideWindow"))
-				  StartMinimised->Checked = reg->ReadBool("HideWindow");
+	   if (reg->OpenKey("Software\\AFAConfigServer\\Form", false))
+		 {
+		   if (reg->ValueExists("HideWindow"))
+			 StartMinimised->Checked = reg->ReadBool("HideWindow");
 
-                reg->CloseKey();
-			  }
+		   reg->CloseKey();
+		 }
 
-			ServicePort->Text = IntToStr(ListenPort);
-			ActRequestInterval->Text = IntToStr(ActivityCheckInterval);
-		  }
-	   __finally {delete reg;}
+	   ServicePort->Text = IntToStr(ListenPort);
+	   ActRequestInterval->Text = IntToStr(ActivityCheckInterval);
 
 	   EnableAutoStart->Checked = CheckAppAutoStart("AFAConfigServer", FOR_CURRENT_USER);
 	 }
@@ -69,21 +65,17 @@ void __fastcall TSettingsForm::WriteSettings()
 {
   try
 	 {
-       TRegistry *reg = new TRegistry();
+	   auto reg = std::make_unique<TRegistry>();
 
-	   try
-		  {
-			reg->RootKey = HKEY_CURRENT_USER;
+	   reg->RootKey = HKEY_CURRENT_USER;
 
-			if (reg->OpenKey("Software\\AFAConfigServer\\Form", false))
-			  {
-				reg->WriteBool("HideWindow", StartMinimised->Checked);
-				reg->CloseKey();
-			  }
+	   if (reg->OpenKey("Software\\AFAConfigServer\\Form", false))
+		 {
+		   reg->WriteBool("HideWindow", StartMinimised->Checked);
+		   reg->CloseKey();
+		 }
 
-			ListenPort = ServicePort->Text.ToInt();
-		  }
-	   __finally {delete reg;}
+	   ListenPort = ServicePort->Text.ToInt();
 
 	   if (EnableAutoStart->Checked)
 		 AddAppAutoStart("AFAConfigServer", Application->ExeName, FOR_CURRENT_USER);
@@ -92,7 +84,7 @@ void __fastcall TSettingsForm::WriteSettings()
 
 	   ActivityCheckInterval = ActRequestInterval->Text.ToInt();
 	   StatusChecker->Suspend();
-	   StatusChecker->CheckInterval = ActivityCheckInterval * 10000;
+	   StatusChecker->CheckInterval = ActivityCheckInterval * 60000;
 	   StatusChecker->Resume();
 	 }
   catch (Exception &e)

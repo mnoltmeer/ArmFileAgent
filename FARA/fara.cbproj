@@ -107,6 +107,7 @@
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
+        <BCC_UseClassicCompiler>false</BCC_UseClassicCompiler>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <Defines>NDEBUG;$(Defines)</Defines>
@@ -124,6 +125,7 @@
         <UWP_CppLogo150>..\icos\ic_remove_red_eye_128_28747.png</UWP_CppLogo150>
         <VerInfo_Build>1</VerInfo_Build>
         <VerInfo_Locale>1033</VerInfo_Locale>
+        <BCC_UseClassicCompiler>false</BCC_UseClassicCompiler>
     </PropertyGroup>
     <ItemGroup>
         <CppCompile Include="ELICodeInsight.cpp">
@@ -141,10 +143,6 @@
             <BuildOrder>1</BuildOrder>
             <PCH>true</PCH>
         </PCHCompile>
-        <CppCompile Include="RecpOrganizer.cpp">
-            <DependentOn>RecpOrganizer.h</DependentOn>
-            <BuildOrder>4</BuildOrder>
-        </CppCompile>
         <CppCompile Include="RecpThread.cpp">
             <DependentOn>RecpThread.h</DependentOn>
             <BuildOrder>5</BuildOrder>
@@ -164,6 +162,10 @@
         <CppCompile Include="..\..\work-functions\MyFunc.cpp">
             <DependentOn>..\..\work-functions\MyFunc.h</DependentOn>
             <BuildOrder>4</BuildOrder>
+        </CppCompile>
+        <CppCompile Include="..\..\work-functions\RecpOrganizer.cpp">
+            <DependentOn>..\..\work-functions\RecpOrganizer.h</DependentOn>
+            <BuildOrder>8</BuildOrder>
         </CppCompile>
         <FormResources Include="ScriptEditor.dfm"/>
         <FormResources Include="Unit.dfm"/>

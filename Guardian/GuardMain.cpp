@@ -91,7 +91,7 @@ void __fastcall TGuardian::FormClose(TObject *Sender, TCloseAction &Action)
 String __fastcall TGuardian::GetAgentPath()
 {
   String result = "";
-  TRegistry *reg = new TRegistry(KEY_READ);
+  auto reg = std::make_unique<TRegistry>(KEY_READ);
 
   try
 	 {
@@ -105,7 +105,10 @@ String __fastcall TGuardian::GetAgentPath()
 		   reg->CloseKey();
 		 }
 	 }
-  __finally {delete reg;}
+  catch (Exception &e)
+	 {
+	   Log->Add("GetAgentPath: " + e.ToString());
+	 }
 
   return result;
 }
@@ -113,25 +116,21 @@ String __fastcall TGuardian::GetAgentPath()
 
 void __fastcall TGuardian::SaveLogTimerTimer(TObject *Sender)
 {
-  TStringStream *ss = new TStringStream("", TEncoding::UTF8, true);
+  auto ss = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
 
   if (!FileExists(LogPath + "\\" + LogName))
 	SaveToFile(LogPath + "\\" + LogName, "");
 
-  TFileStream *fs = new TFileStream(LogPath + "\\" + LogName, fmOpenReadWrite);
+  auto fs = std::make_unique<TFileStream>(LogPath + "\\" + LogName, fmOpenReadWrite);
 
-  try
-	 {
-	   Log->SaveToStream(ss);
+  Log->SaveToStream(ss.get());
 
-	   if (ss->Size > fs->Size)
-		 {
-		   fs->Position = fs->Size;
-		   ss->Position = fs->Size;
-		   fs->Write(ss->Bytes, ss->Position, ss->Size - ss->Position);
-		 }
-	 }
-  __finally {delete ss; delete fs;}
+  if (ss->Size > fs->Size)
+	{
+	  fs->Position = fs->Size;
+	  ss->Position = fs->Size;
+	  fs->Write(ss->Bytes, ss->Position, ss->Size - ss->Position);
+	}
 
   if (Date().CurrentDate() > DateStart)
 	{

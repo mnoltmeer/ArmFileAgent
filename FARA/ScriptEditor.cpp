@@ -1,6 +1,7 @@
 //---------------------------------------------------------------------------
 
 #include <vcl.h>
+#include <memory>
 #pragma hdrstop
 
 #include "Unit.h"
@@ -397,15 +398,12 @@ void __fastcall TScriptForm::SendScriptClick(TObject *Sender)
 	   AURAForm->AddActionLog("Відправка скрипту до " +
 							  AURAForm->Host->Text + ":" +
 							  AURAForm->Port->Text);
+	   auto ms = std::make_unique<TStringStream>(Editor->Text, TEncoding::UTF8, true);
 
-	   TStringStream *ms = new TStringStream(Editor->Text, TEncoding::UTF8, true);
-
-	   try
-		  {
-			ms->Position = 0;
-			AURAForm->SendToServer(AURAForm->Host->Text.c_str(), AURAForm->Port->Text.ToInt(), ms);
-		  }
-	   __finally {delete ms;}
+	   ms->Position = 0;
+	   AURAForm->SendToServer(AURAForm->Host->Text.c_str(),
+							  AURAForm->Port->Text.ToInt(),
+							  ms.get());
 
        Close();
 	 }

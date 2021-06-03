@@ -20,24 +20,22 @@ bool ClientConfigLink::operator ==(ClientConfigLink lnk)
 ClientConfigLink *ClientConfigLinks::ReadLinks(int ind)
 {
   if (ind < 0)
-	throw new Exception("ClientConfigLinks::Links: Out of bounds!");
+	throw Exception("ClientConfigLinks::Links: Out of bounds!");
   else if (ind < FLinks.size())
 	return &FLinks[ind];
   else
-	{
-	  throw new Exception("ClientConfigLinks::Links: Out of bounds!");
-    }
+	throw Exception("ClientConfigLinks::Links: Out of bounds!");
 }
 //---------------------------------------------------------------------------
 
 void ClientConfigLinks::WriteLinks(int ind, ClientConfigLink *lnk)
 {
   if (ind < 0)
-	throw new Exception("ClientConfigLinks::Links: Out of bounds!");
+	throw Exception("ClientConfigLinks::Links: Out of bounds!");
   else if (ind < FLinks.size())
 	FLinks[ind] = *lnk;
   else
-	throw new Exception("ClientConfigLinks::Links: Out of bounds!");
+	throw Exception("ClientConfigLinks::Links: Out of bounds!");
 }
 //---------------------------------------------------------------------------
 
@@ -55,7 +53,7 @@ void ClientConfigLinks::Add(const String &index, const String &station, const St
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("ClientConfigLinks::Add: " + e.ToString());
+	   throw Exception("ClientConfigLinks::Add: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -68,7 +66,7 @@ void ClientConfigLinks::Add(ClientConfigLink lnk)
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("ClientConfigLinks::Add: " + e.ToString());
+	   throw Exception("ClientConfigLinks::Add: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -81,7 +79,7 @@ void ClientConfigLinks::Remove(int ind)
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("ClientConfigLinks::Remove: " + e.ToString());
+	   throw Exception("ClientConfigLinks::Remove: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -94,7 +92,7 @@ void ClientConfigLinks::Remove(const String &index, const String &station, const
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("ClientConfigLinks::Remove: " + e.ToString());
+	   throw Exception("ClientConfigLinks::Remove: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -116,7 +114,7 @@ int ClientConfigLinks::IndexOf(const String &index, const String &station, const
   catch (Exception &e)
 	 {
 	   res = -1;
-	   throw new Exception("ClientConfigLinks::IndexOf: " + e.ToString());
+	   throw Exception("ClientConfigLinks::IndexOf: " + e.ToString());
 	 }
 
   return res;
@@ -141,7 +139,7 @@ int ClientConfigLinks::IndexOf(ClientConfigLink link)
   catch (Exception &e)
 	 {
 	   res = -1;
-	   throw new Exception("ClientConfigLinks::IndexOf: " + e.ToString());
+	   throw Exception("ClientConfigLinks::IndexOf: " + e.ToString());
 	 }
 
   return res;
@@ -172,7 +170,7 @@ void ClientConfigManager::AddLink(const String &index, const String &station, co
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("ClientConfigManager::AddLink: " + e.ToString());
+	   throw Exception("ClientConfigManager::AddLink: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -185,7 +183,7 @@ void ClientConfigManager::RemoveLink(int ind)
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("ClientConfigManager::RemoveLink: " + e.ToString());
+	   throw Exception("ClientConfigManager::RemoveLink: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -198,7 +196,7 @@ void ClientConfigManager::RemoveLink(const String &index, const String &station,
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("ClientConfigManager::RemoveLink: " + e.ToString());
+	   throw Exception("ClientConfigManager::RemoveLink: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -222,7 +220,7 @@ void ClientConfigManager::RemoveLinks(const String &index, const String &station
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("ClientConfigManager::RemoveLinks: " + e.ToString());
+	   throw Exception("ClientConfigManager::RemoveLinks: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -243,7 +241,7 @@ void ClientConfigManager::RemoveLinks(const String &index)
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("ClientConfigManager::RemoveLinks: " + e.ToString());
+	   throw Exception("ClientConfigManager::RemoveLinks: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -267,7 +265,7 @@ ClientConfigLinks* ClientConfigManager::GetLinks(const String &index, const Stri
 	   if (res) delete res;
 
 	   res = NULL;
-	   throw new Exception("ClientConfigManager::GetLinks: " + e.ToString());
+	   throw Exception("ClientConfigManager::GetLinks: " + e.ToString());
 	 }
 
   return res;
@@ -298,7 +296,7 @@ ClientConfigLinks* ClientConfigManager::GetLinks(const String &index, bool index
 	   if (res) delete res;
 
 	   res = NULL;
-	   throw new Exception("ClientConfigManager::GetLinks: " + e.ToString());
+	   throw Exception("ClientConfigManager::GetLinks: " + e.ToString());
 	 }
 
   return res;
@@ -309,26 +307,22 @@ void ClientConfigManager::LoadFromFile(const String &file)
 {
   try
 	 {
-	   TStringList *loader = new TStringList();
-	   TStringList *lst = new TStringList();
+	   auto loader = std::make_unique<TStringList>();
+	   auto lst = std::make_unique<TStringList>();
 
-	   try
+	   loader->LoadFromFile(file);
+
+	   for (int i = 0; i < loader->Count; i++)
 		  {
-			loader->LoadFromFile(file);
+			lst->Clear();
+			StrToList(lst.get(), loader->Strings[i], ";");
 
-			for (int i = 0; i < loader->Count; i++)
-			   {
-				 lst->Clear();
-				 StrToList(lst, loader->Strings[i], ";");
-
-				 AddLink(lst->Strings[0], lst->Strings[1], lst->Strings[2]);
-			   }
+			AddLink(lst->Strings[0], lst->Strings[1], lst->Strings[2]);
 		  }
-	   __finally {delete loader; delete lst;}
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("ClientConfigManager::LoadFromFile: " + e.ToString());
+	   throw Exception("ClientConfigManager::LoadFromFile: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -337,24 +331,20 @@ void ClientConfigManager::SaveToFile(const String &file)
 {
   try
 	 {
-       TStringList *saver = new TStringList();
+	   auto saver = std::make_unique<TStringList>();
 
-	   try
+	   for (int i = 0; i < Count; i++)
 		  {
-			for (int i = 0; i < Count; i++)
-			   {
-				 saver->Add(FLinks->Links[i]->IndexVZ + ";" +
-							FLinks->Links[i]->StationID + ";" +
-							FLinks->Links[i]->FileName);
-			   }
-
-			saver->SaveToFile(file);
+			saver->Add(FLinks->Links[i]->IndexVZ + ";" +
+					   FLinks->Links[i]->StationID + ";" +
+					   FLinks->Links[i]->FileName);
 		  }
-	   __finally {delete saver;}
+
+	   saver->SaveToFile(file);
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("ClientConfigManager::SaveToFile: " + e.ToString());
+	   throw Exception("ClientConfigManager::SaveToFile: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------

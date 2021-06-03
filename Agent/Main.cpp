@@ -4,6 +4,7 @@ Copyright 2020-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 //---------------------------------------------------------------------------
 
 #include <vcl.h>
+#include <memory>
 #pragma hdrstop
 
 #include "..\..\work-functions\MyFunc.h"
@@ -58,12 +59,13 @@ const wchar_t *MainParams[MainPrmCnt] = {L"MailFrom",
 __fastcall TMainForm::TMainForm(TComponent* Owner)
 	: TForm(Owner)
 {
-  CreateResources();
 }
 //---------------------------------------------------------------------------
 
 void __fastcall TMainForm::FormCreate(TObject *Sender)
 {
+  CreateResources();
+
   try
 	 {
        WindowState = wsMinimized;
@@ -72,7 +74,7 @@ void __fastcall TMainForm::FormCreate(TObject *Sender)
 //підписуємось на отримання повідомлень WM_WTSSESSION_CHANGE
 //щоб зупиняти Менеджер, коли користувач виходить з обліковки
 	   if (!WTSRegisterSessionNotification(this->Handle, NOTIFY_FOR_THIS_SESSION))
-		 throw new Exception("WTSRegisterSessionNotification() fail: " + IntToStr((int)GetLastError()));
+		 throw Exception("WTSRegisterSessionNotification() fail: " + IntToStr((int)GetLastError()));
 	 }
   catch (Exception &e)
 	 {
@@ -156,8 +158,12 @@ void __fastcall TMainForm::ReleaseResources()
 			 {
 			   ConfigLoader->Terminate();
 
-			   while (!ConfigLoader->Finished)
-				 Sleep(100);
+			   HANDLE hLoader = reinterpret_cast<HANDLE>(ConfigLoader->Handle);
+
+               DWORD wait = WaitForSingleObject(hLoader, 300);
+
+			   if (wait == WAIT_TIMEOUT)
+			     TerminateThread(hLoader, 0);
 			 }
 
 		   delete ConfigLoader;
@@ -362,6 +368,8 @@ void __fastcall TMainForm::Migration()
 	   else
 		 Log->Add("Не вдалося завершити роботу Менеджера");
 
+       SetConfigLine(cfg, "EnableAutoStart", "0"); //відключаємо автозапуск Менеджера
+
        Sleep(1000);
 	 }
   catch (Exception &e)
@@ -377,21 +385,18 @@ void __fastcall TMainForm::Unregistration()
 	 {
 	   Caption = "ArmAgent -unreg";
 
-	   TRegistry *reg = new TRegistry(KEY_WRITE);
+	   auto reg = std::make_unique<TRegistry>(KEY_WRITE);
 
-	   try
-		  {
-			reg->RootKey = HKEY_CURRENT_USER;
+	   reg->RootKey = HKEY_CURRENT_USER;
 
-			if (reg->KeyExists("Software\\ArmFileAgent"))
-			  reg->DeleteKey("Software\\ArmFileAgent");
+	   if (reg->KeyExists("Software\\ArmFileAgent"))
+		 reg->DeleteKey("Software\\ArmFileAgent");
 
-            reg->RootKey = HKEY_LOCAL_MACHINE;
+	   reg->RootKey = HKEY_LOCAL_MACHINE;
 
-			if (reg->KeyExists("Software\\ArmFileAgent"))
-			  reg->DeleteKey("Software\\ArmFileAgent");
-		  }
-	   __finally {delete reg;}
+	   if (reg->KeyExists("Software\\ArmFileAgent"))
+	     reg->DeleteKey("Software\\ArmFileAgent");
+
 
 	   bool remove_agent = false;
 
@@ -439,7 +444,7 @@ void __fastcall TMainForm::CheckConfig(String cfg_file)
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("Помилка перевірки конфігу з " + cfg_file +
+	   throw Exception("Помилка перевірки конфігу з " + cfg_file +
 			   			   " помилка: " + e.ToString());
 	 }
 }
@@ -646,36 +651,32 @@ void __fastcall TMainForm::WriteSettings()
 {
   try
 	 {
-	   TRegistry *reg = new TRegistry(KEY_WRITE);
+	   auto reg = std::make_unique<TRegistry>(KEY_WRITE);
 
-	   try
-		  {
-			reg->RootKey = HKEY_LOCAL_MACHINE;
+	   reg->RootKey = HKEY_LOCAL_MACHINE;
 
-			if (!reg->KeyExists("Software\\ArmFileAgent"))
-			  reg->CreateKey("Software\\ArmFileAgent");
+	   if (!reg->KeyExists("Software\\ArmFileAgent"))
+		 reg->CreateKey("Software\\ArmFileAgent");
 
-			if (reg->OpenKey("Software\\ArmFileAgent", false))
-			  {
-				if (ConfigServerPort)
-				  reg->WriteInteger("ConfigServerPort", ConfigServerPort);
+	   if (reg->OpenKey("Software\\ArmFileAgent", false))
+		 {
+		   if (ConfigServerPort)
+			 reg->WriteInteger("ConfigServerPort", ConfigServerPort);
 
-				if (RemAdmPort)
-				  reg->WriteInteger("RemAdmPort", RemAdmPort);
+		   if (RemAdmPort)
+			 reg->WriteInteger("RemAdmPort", RemAdmPort);
 
-				if (ConfigServerHost != "")
-				  reg->WriteString("ConfigServerHost", ConfigServerHost);
+		   if (ConfigServerHost != "")
+			 reg->WriteString("ConfigServerHost", ConfigServerHost);
 
-				if (StationID != "")
-				  reg->WriteString("StationID", StationID);
+		   if (StationID != "")
+			 reg->WriteString("StationID", StationID);
 
-				if (IndexVZ != "")
-				  reg->WriteString("IndexVZ", IndexVZ);
+		   if (IndexVZ != "")
+		     reg->WriteString("IndexVZ", IndexVZ);
 
-				reg->CloseKey();
-			  }
-		  }
-	   __finally {delete reg;}
+		   reg->CloseKey();
+		 }
 	 }
   catch (Exception &e)
 	 {
@@ -688,23 +689,19 @@ void __fastcall TMainForm::WriteModulePath()
 {
   try
 	 {
-	   TRegistry *reg = new TRegistry(KEY_WRITE);
+	   auto reg = std::make_unique<TRegistry>(KEY_WRITE);
 
-	   try
-		  {
-			reg->RootKey = HKEY_CURRENT_USER;
+	   reg->RootKey = HKEY_CURRENT_USER;
 
-			if (!reg->KeyExists("Software\\ArmFileAgent"))
-			  reg->CreateKey("Software\\ArmFileAgent");
+	   if (!reg->KeyExists("Software\\ArmFileAgent"))
+		 reg->CreateKey("Software\\ArmFileAgent");
 
-			if (reg->OpenKey("Software\\ArmFileAgent", false))
-			  {
-				reg->WriteString("ModulePath", Application->ExeName);
+	   if (reg->OpenKey("Software\\ArmFileAgent", false))
+		 {
+		   reg->WriteString("ModulePath", Application->ExeName);
 
-				reg->CloseKey();
-			  }
-		  }
-	   __finally {delete reg;}
+		   reg->CloseKey();
+		 }
 	 }
   catch (Exception &e)
 	 {
@@ -719,43 +716,39 @@ int __fastcall TMainForm::ReadSettings()
 
   try
 	 {
-	   TRegistry *reg = new TRegistry(KEY_READ);
+	   auto reg = std::make_unique<TRegistry>(KEY_READ);
 
-	   try
-		  {
-			reg->RootKey = HKEY_LOCAL_MACHINE;
+	   reg->RootKey = HKEY_LOCAL_MACHINE;
 
-			if (reg->OpenKey("Software\\ArmFileAgent", false))
-			  {
-				if (reg->ValueExists("ConfigServerHost"))
-				  ConfigServerHost = reg->ReadString("ConfigServerHost");
-				else
-				  res = 0;
+	   if (reg->OpenKey("Software\\ArmFileAgent", false))
+		 {
+		   if (reg->ValueExists("ConfigServerHost"))
+			 ConfigServerHost = reg->ReadString("ConfigServerHost");
+		   else
+			 res = 0;
 
-				if (reg->ValueExists("ConfigServerPort"))
-				  ConfigServerPort = reg->ReadInteger("ConfigServerPort");
+		   if (reg->ValueExists("ConfigServerPort"))
+			 ConfigServerPort = reg->ReadInteger("ConfigServerPort");
 
-				if (reg->ValueExists("StationID"))
-				  StationID = reg->ReadString("StationID");
-				else
-				  res = 0;
+		   if (reg->ValueExists("StationID"))
+			 StationID = reg->ReadString("StationID");
+		   else
+			 res = 0;
 
-				if (reg->ValueExists("IndexVZ"))
-				  IndexVZ = reg->ReadString("IndexVZ");
-				else
-				  res = 0;
+		   if (reg->ValueExists("IndexVZ"))
+			 IndexVZ = reg->ReadString("IndexVZ");
+		   else
+			 res = 0;
 
-				if (reg->ValueExists("RemAdmPort"))
-				  RemAdmPort = reg->ReadInteger("RemAdmPort");
-				else
-				  res = 0;
+		   if (reg->ValueExists("RemAdmPort"))
+			 RemAdmPort = reg->ReadInteger("RemAdmPort");
+		   else
+			 res = 0;
 
-				reg->CloseKey();
-			  }
-			else
-			  res = -1;
-		  }
-	   __finally {delete reg;}
+		   reg->CloseKey();
+		 }
+	   else
+		 res = -1;
 	 }
   catch (Exception &e)
 	 {
@@ -793,7 +786,7 @@ void __fastcall TMainForm::SendMsg(String mail_addr, String subject, String from
 {
   if (MailSender->Connected())
 	{
-	  TIdMessage* msg = new TIdMessage(MainForm);
+	  auto msg = std::make_unique<TIdMessage>(MainForm);
 
 	  msg->CharSet = MailCodePage;
 	  msg->Body->Text = log;
@@ -802,10 +795,8 @@ void __fastcall TMainForm::SendMsg(String mail_addr, String subject, String from
 	  msg->Subject = subject;
 	  msg->Priority = TIdMessagePriority(mpHighest);
 
-	  MailSender->Send(msg);
+	  MailSender->Send(msg.get());
 	  MailSender->Disconnect();
-
-	  delete msg;
 	}
 }
 //-------------------------------------------------------------------------
@@ -843,183 +834,173 @@ int __fastcall TMainForm::SendLog(String mail_addr, String subject, String from,
 void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 {
   String msg, cfg;
-  TStringStream *ms = new TStringStream("", TEncoding::UTF8, true);
-  TStringList *list = new TStringList();
 
-  AContext->Connection->IOHandler->ReadStream(ms);
+  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+  auto list = std::make_unique<TStringList>();
+
+  AContext->Connection->IOHandler->ReadStream(ms.get());
 
   try
 	 {
-	   try
-		  {
-			ms->Position = 0;
-  			msg = ms->ReadString(ms->Size);
+	   ms->Position = 0;
+	   msg = ms->ReadString(ms->Size);
 
-			StrToList(list, msg, "%");
+	   StrToList(list.get(), msg, "%");
 
-			if (list->Strings[0] == "#send")
-			  {
-				if (list->Strings[1] == "status")
-				  ASendStatus(AContext);
-				else if (list->Strings[1] == "cfg")
-				  ASendConfig(list, AContext);
-				else if (list->Strings[1] == "log")
-				  ASendLog(AContext);
-				else if (list->Strings[1] == "srvlist")
-				  ASendConnList(AContext);
-				else if (list->Strings[1] == "thlist")
-				  ASendThreadList(AContext);
-				else if (list->Strings[1] == "version")
-				  ASendVersion(AContext);
-			  }
-            else if (list->Strings[0] == "#get")
-			  {
-				TStringList *ls = new TStringList();
+	   if (list->Strings[0] == "#send")
+		 {
+		   if (list.get()->Strings[1] == "status")
+			 ASendStatus(AContext);
+		   else if (list->Strings[1] == "cfg")
+			 ASendConfig(list.get(), AContext);
+		   else if (list->Strings[1] == "log")
+			 ASendLog(AContext);
+		   else if (list->Strings[1] == "srvlist")
+			 ASendConnList(AContext);
+		   else if (list->Strings[1] == "thlist")
+			 ASendThreadList(AContext);
+		   else if (list->Strings[1] == "version")
+		     ASendVersion(AContext);
+		 }
+	   else if (list->Strings[0] == "#get")
+		 {
+		   auto ls = std::make_unique<TStringList>();
+		   int ind = list->Strings[2].ToInt();
 
-				try
-				   {
-					 int ind = list->Strings[2].ToInt();
+		   StrToList(ls.get(), list->Strings[3], "#");
 
-					 StrToList(ls, list->Strings[3], "#");
+		   if (ind == 0)
+			 {
+			   ls->SaveToFile(DataPath + "\\main.cfg", TEncoding::UTF8);
+			   ReadConfig();
+			 }
+		   else
+			 {
+			   TExchangeConnect *srv = ConnManager->Find(ind);
 
-					 if (ind == 0)
-					   {
-						 ls->SaveToFile(DataPath + "\\main.cfg", TEncoding::UTF8);
-						 ReadConfig();
-					   }
-					 else
-					   {
-						 TExchangeConnect *srv = ConnManager->Find(ind);
+			   if (srv)
+				 {
+				   ls->SaveToFile(srv->ConfigPath, TEncoding::UTF8);
+				   srv->ReInitialize();
+				 }
+			   else
+				 throw Exception("невідомий ID з'єднання: " + list->Strings[2]);
+			 }
 
-						 if (srv)
-						   {
-							 ls->SaveToFile(srv->ConfigPath, TEncoding::UTF8);
-							 srv->ReInitialize();
-						   }
-						 else
-						   throw Exception("невідомий ID з'єднання: " + list->Strings[2]);
-					   }
+		   TrayIcon->BalloonFlags = bfInfo;
+		   TrayIcon->BalloonHint = "Дані з конфігу оновлені";
+		   TrayIcon->ShowBalloonHint();
+		 }
+	   else if (list->Strings[0] == "#run")
+		 {
+		   int ind = list->Strings[1].ToInt();
 
-					 TrayIcon->BalloonFlags = bfInfo;
-					 TrayIcon->BalloonHint = "Дані з конфігу оновлені";
-					 TrayIcon->ShowBalloonHint();
-				   }
-				__finally {delete ls;}
-			  }
-			else if (list->Strings[0] == "#run")
-			  {
-				int ind = list->Strings[1].ToInt();
+		   if (ind == 0)
+			 {
+			   for (int i = 0; i < ConnManager->ConnectionCount; i++)
+				  ConnManager->Run(ConnManager->Connections[i]);
+			 }
+		   else
+			 {
+			   TExchangeConnect *srv = ConnManager->Find(ind);
 
-				if (ind == 0)
-				  {
-                    for (int i = 0; i < ConnManager->ConnectionCount; i++)
-					   ConnManager->Run(ConnManager->Connections[i]);
-                  }
-				else
-				  {
-					TExchangeConnect *srv = ConnManager->Find(ind);
+			   if (srv)
+				 {
+				   TAMThread *th = ConnManager->FindThread(srv->ThreadID);
 
-					if (srv)
-					  {
-						TAMThread *th = ConnManager->FindThread(srv->ThreadID);
+				   if (th)
+					 th->PassedTime = srv->Config->MonitoringInterval;
 
-						if (th)
-						  th->PassedTime = srv->Config->MonitoringInterval;
+				   if (!srv->Working())
+				     ConnManager->Run(srv);
+				 }
+			   else
+				 throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
+			 }
+		 }
+	   else if (list->Strings[0] == "#stop")
+		 {
+		   int ind = list->Strings[1].ToInt();
 
-						if (!srv->Working())
-					  	  ConnManager->Run(srv);
-					  }
-					else
-					  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
-				  }
-			  }
-			else if (list->Strings[0] == "#stop")
-			  {
-				int ind = list->Strings[1].ToInt();
+		   if (ind == 0)
+			 {
+			   for (int i = 0; i < ConnManager->ConnectionCount; i++)
+				  ConnManager->Stop(ConnManager->Connections[i]);
+			 }
+		   else
+			 {
+			   TExchangeConnect *srv = ConnManager->Find(ind);
 
-                if (ind == 0)
-				  {
-                    for (int i = 0; i < ConnManager->ConnectionCount; i++)
-					   ConnManager->Stop(ConnManager->Connections[i]);
-                  }
-				else
-				  {
-					TExchangeConnect *srv = ConnManager->Find(ind);
+			   if (srv)
+				 ConnManager->Stop(srv);
+			   else
+			     throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
+			 }
+		 }
+	   else if (list->Strings[0] == "#restart")
+		 {
+		   int ind = list->Strings[1].ToInt();
 
-					if (srv)
-					  ConnManager->Stop(srv);
-					else
-				  	  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
-				  }
-			  }
-			else if (list->Strings[0] == "#restart")
-			  {
-				int ind = list->Strings[1].ToInt();
+		   TExchangeConnect *srv = ConnManager->Find(ind);
 
-				TExchangeConnect *srv = ConnManager->Find(ind);
+		   if (srv)
+			 {
+			   ConnManager->Stop(srv);
+			   Sleep(1000);
+			   ConnManager->Run(srv);
+			 }
+		   else
+			 throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
+		 }
+	   else if (list->Strings[0] == "#shutdown")
+		 {
+		   Log->Add("FARA: отримано команду shutdown");
+		   PostMessage(Application->Handle, WM_QUIT, 0, 0);
+		 }
+	   else if (list->Strings[0] == "#restart_guard")
+		 {
+		   Log->Add("FARA: отримано команду перезапуску Guardian");
+		   RestartGuardian();
+		 }
+	   else if (msg.SubString(1, 6) == "#begin") //з цього слова починається будь-який скрипт
+		 {
+		   Log->Add("FARA: надійшов керуючий скрипт");
 
-				if (srv)
-				  {
-					ConnManager->Stop(srv);
-					Sleep(1000);
-					ConnManager->Run(srv);
-				  }
-				else
-				  throw Exception("невідомий ID з'єднання: " + list->Strings[1]);
-			  }
-			else if (list->Strings[0] == "#shutdown")
-			  {
-				Log->Add("FARA: отримано команду shutdown");
-				PostMessage(Application->Handle, WM_QUIT, 0, 0);
-			  }
-			else if (list->Strings[0] == "#restart_guard")
-			  {
-				Log->Add("FARA: отримано команду перезапуску Guardian");
-				RestartGuardian();
-			  }
-			else if (msg.SubString(1, 6) == "#begin") //з цього слова починається будь-який скрипт
-			  {
-				Log->Add("FARA: надійшов керуючий скрипт");
+		   ExecuteScript(msg.c_str());
+		 }
+	   else if (list->Strings[0] == "#status") //запит статусу від сервера конфігів
+		 ASendStatusAnswer(AContext);
+	   else if (list->Strings[0] == "#checkupdate") //команда примусового з'єднання з сервером конфігів
+		 {
+		   Log->Add("FARA: надійшла команда перевірки оновлень");
 
-				ExecuteScript(msg.c_str());
-			  }
-			else if (list->Strings[0] == "#status") //запит статусу від сервера конфігів
-			  {
-				ASendStatusAnswer(AContext);
-			  }
-			else if (list->Strings[0] == "#checkupdate") //команда примусового з'єднання з сервером конфігів
-			  {
-				Log->Add("FARA: надійшла команда перевірки оновлень");
+		   if (ConfigLoader)
+			 {
+			   ConfigLoader->Terminate();
+			   HANDLE hLoader = reinterpret_cast<HANDLE>(ConfigLoader->Handle);
 
-				if (ConfigLoader)
-				  {
-					ConfigLoader->Terminate();
-					HANDLE hLoader = reinterpret_cast<HANDLE>(ConfigLoader->Handle);
+			   DWORD wait = WaitForSingleObject(hLoader, 300);
 
-					DWORD wait = WaitForSingleObject(hLoader, 300);
+			   if (wait == WAIT_TIMEOUT)
+				 TerminateThread(hLoader, 0);
 
-					if (wait == WAIT_TIMEOUT)
-					  TerminateThread(hLoader, 0);
+			   delete ConfigLoader;
+			 }
 
-					delete ConfigLoader;
-				  }
+		   ConfigLoader = new TConfigLoaderThread(true);
 
-				 ConfigLoader = new TConfigLoaderThread(true);
-
-				if (!WaitForLoadFromServer(2000))
-				  Log->Add("Немає відповіді від серверу конфігурацій");
-				else
-				  Log->Add("Встановлено зв'язок із сервером конфігурацій");
-			  }
-			else
-			  throw Exception("Невідомі дані: " + list->Strings[0]);
-		  }
-	   catch (Exception &e)
-		  {
-			Log->Add("FARA: " + e.ToString());
-		  }
+		   if (!WaitForLoadFromServer(2000))
+			 Log->Add("Немає відповіді від серверу конфігурацій");
+		   else
+			 Log->Add("Встановлено зв'язок із сервером конфігурацій");
+		 }
+	   else
+	     throw Exception("Невідомі дані: " + list->Strings[0]);
 	 }
-  __finally {delete list; delete ms;}
+  catch (Exception &e)
+	 {
+	   Log->Add("FARA: " + e.ToString());
+	 }
 }
 //---------------------------------------------------------------------------
 
@@ -1077,7 +1058,7 @@ void __fastcall TMainForm::SendStartUpdateMessage()
 	  HWND guard_handle = FindHandleByName(L"ArmAgent Guardian");
 
 	  if (!guard_handle)
-		throw new Exception("Не вдалося отримати хендл вікна Guardian");
+		throw Exception("Не вдалося отримати хендл вікна Guardian");
 	  else
 		SendMessage(guard_handle, WM_KEYDOWN, VK_RETURN, NULL);
 	}
@@ -1096,25 +1077,20 @@ void __fastcall TMainForm::IconPP1Click(TObject *Sender)
 
 void __fastcall TMainForm::SaveLogTimerTimer(TObject *Sender)
 {
-  TStringStream *ss = new TStringStream("", TEncoding::UTF8, true);
-
   if (!FileExists(LogPath + "\\" + LogName))
 	SaveToFile(LogPath + "\\" + LogName, "");
 
-  TFileStream *fs = new TFileStream(LogPath + "\\" + LogName, fmOpenReadWrite);
+  auto ss = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+  auto fs = std::make_unique<TFileStream>(LogPath + "\\" + LogName, fmOpenReadWrite);
 
-  try
-	 {
-	   Log->SaveToStream(ss);
+  Log->SaveToStream(ss.get());
 
-	   if (ss->Size > fs->Size)
-		 {
-		   fs->Position = fs->Size;
-		   ss->Position = fs->Size;
-		   fs->Write(ss->Bytes, ss->Position, ss->Size - ss->Position);
-		 }
-	 }
-  __finally {delete ss; delete fs;}
+  if (ss->Size > fs->Size)
+	{
+	  fs->Position = fs->Size;
+	  ss->Position = fs->Size;
+	  fs->Write(ss->Bytes, ss->Position, ss->Size - ss->Position);
+	}
 
   if (Date().CurrentDate() > DateStart)
 	{
@@ -1270,7 +1246,7 @@ void __fastcall TMainForm::StopApplication()
 	 {
 	   Log->Add("Завершення роботи: " + e.ToString());
 
-	   throw new Exception("Помилка завершення роботи!");
+	   throw Exception("Помилка завершення роботи!");
 	 }
 }
 //---------------------------------------------------------------------------
@@ -1308,7 +1284,7 @@ int __fastcall TMainForm::ASendStatus(TIdContext *AContext)
   Log->Add("FARA: запит статусу");
 
   String msg = "";
-  TStringStream *ms = new TStringStream("", TEncoding::UTF8, true);
+  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
   int res = -1;
 
   try
@@ -1324,9 +1300,12 @@ int __fastcall TMainForm::ASendStatus(TIdContext *AContext)
 	   ms->Clear();
 	   ms->WriteString(msg);
 	   ms->Position = 0;
-	   res = AAnswerToClient(AContext, ms);
+	   res = AAnswerToClient(AContext, ms.get());
 	 }
-  __finally {delete ms;}
+  catch (Exception &e)
+	 {
+	   Log->Add("FARA::ASendStatus: " + e.ToString());
+	 }
 
   return res;
 }
@@ -1337,49 +1316,43 @@ int __fastcall TMainForm::ASendConfig(TStringList *list, TIdContext *AContext)
   Log->Add("FARA: запит конфігурації");
 
   int ind, res = -1;
-  TStringStream *ms = new TStringStream("", TEncoding::UTF8, true);
-  TStringList *ls = new TStringList();
+  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+  auto ls = std::make_unique<TStringList>();
+
+  String msg = "";
 
   try
 	 {
-       String msg = "";
+	   ind = list->Strings[2].ToInt();
 
-	   try
-		  {
-			ind = list->Strings[2].ToInt();
-
-            if (ind == 0)
+	   if (ind == 0)
 			  ls->LoadFromFile(DataPath + "\\main.cfg");
-			else
-			  {
-				TExchangeConnect *srv = ConnManager->Find(ind);
+	   else
+		 {
+		   TExchangeConnect *srv = ConnManager->Find(ind);
 
-				if (srv)
-				  ls->LoadFromFile(srv->ConfigPath);
-				else
-				  throw Exception("Невідомий ID з'єднання: " + list->Strings[2]);
-			  }
+		   if (srv)
+			 ls->LoadFromFile(srv->ConfigPath);
+		   else
+		     throw Exception("Невідомий ID з'єднання: " + list->Strings[2]);
+		 }
 
-            for (int i = 0; i < ls->Count; i++)
-			   {
-				 msg += ls->Strings[i] + "#";
-			   }
+	   for (int i = 0; i < ls->Count; i++)
+		  msg += ls->Strings[i] + "#";
 
-			if (msg == "")
-			  msg = "error ";
+	   if (msg == "")
+		 msg = "error ";
 
-			msg.Delete(msg.Length(), 1);
-			ms->Clear();
-			ms->WriteString(msg);
-			ms->Position = 0;
-            res = AAnswerToClient(AContext, ms);
-		  }
-	   catch (Exception &e)
-		  {
-			Log->Add("FARA: " + e.ToString());
-		  }
-     }
-  __finally {delete ls; delete ms;}
+	   msg.Delete(msg.Length(), 1);
+	   ms->Clear();
+	   ms->WriteString(msg);
+	   ms->Position = 0;
+	   res = AAnswerToClient(AContext, ms.get());
+	 }
+  catch (Exception &e)
+	 {
+	   Log->Add("FARA::ASendConfig: " + e.ToString());
+	 }
 
   return res;
 }
@@ -1391,23 +1364,24 @@ int __fastcall TMainForm::ASendLog(TIdContext *AContext)
 
   String msg = "";
   int res = -1;
-  TStringStream *ms = new TStringStream("", TEncoding::UTF8, true);
+  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
 
   try
 	 {
 	   for (int i = 0; i < Log->Count; i++)
-		  {
-			msg += Log->Get(i) + "&";
-		  }
+		  msg += Log->Get(i) + "&";
 
 	   msg.Delete(msg.Length(), 1);
 
 	   ms->Clear();
 	   ms->WriteString(msg);
 	   ms->Position = 0;
-	   res = AAnswerToClient(AContext, ms);
+	   res = AAnswerToClient(AContext, ms.get());
 	 }
-  __finally {delete ms;}
+  catch (Exception &e)
+	 {
+	   Log->Add("FARA::ASendLog: " + e.ToString());
+	 }
 
   return res;
 }
@@ -1418,7 +1392,7 @@ int __fastcall TMainForm::ASendConnList(TIdContext *AContext)
   Log->Add("FARA: запит списку з'єднань");
 
   String msg = "";
-  TStringStream *ms = new TStringStream("", TEncoding::UTF8, true);
+  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
   int res = -1;
 
   try
@@ -1434,9 +1408,12 @@ int __fastcall TMainForm::ASendConnList(TIdContext *AContext)
 	   ms->Clear();
 	   ms->WriteString(msg);
 	   ms->Position = 0;
-	   res = AAnswerToClient(AContext, ms);
+	   res = AAnswerToClient(AContext, ms.get());
 	 }
-  __finally {delete ms;}
+  catch (Exception &e)
+	 {
+	   Log->Add("FARA::ASendConnList: " + e.ToString());
+	 }
 
   return res;
 }
@@ -1447,7 +1424,7 @@ int __fastcall TMainForm::ASendThreadList(TIdContext *AContext)
   Log->Add("FARA: запит списку потоків");
 
   String msg = "";
-  TStringStream *ms = new TStringStream("", TEncoding::UTF8, true);
+  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
   int res = -1;
 
   try
@@ -1478,9 +1455,12 @@ int __fastcall TMainForm::ASendThreadList(TIdContext *AContext)
 	   ms->Clear();
 	   ms->WriteString(msg);
 	   ms->Position = 0;
-	   res = AAnswerToClient(AContext, ms);
+	   res = AAnswerToClient(AContext, ms.get());
 	 }
-  __finally {delete ms;}
+  catch (Exception &e)
+	 {
+	   Log->Add("FARA::ASendThreadList: " + e.ToString());
+	 }
 
   return res;
 }
@@ -1491,7 +1471,7 @@ int __fastcall TMainForm::ASendFile(TStringList *list, TIdContext *AContext)
   Log->Add("FARA: запит файлу " + list->Strings[2]);
 
   String msg = "";
-  TStringStream *ms = new TStringStream("", TEncoding::UTF8, true);
+  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
   int res = -1;
 
   try
@@ -1500,9 +1480,12 @@ int __fastcall TMainForm::ASendFile(TStringList *list, TIdContext *AContext)
 		 ms->LoadFromFile(list->Strings[2]);
 
 	   ms->Position = 0;
-	   res = AAnswerToClient(AContext, ms);
+	   res = AAnswerToClient(AContext, ms.get());
 	 }
-  __finally {delete ms;}
+  catch (Exception &e)
+	 {
+	   Log->Add("FARA::ASendFile: " + e.ToString());
+	 }
 
   return res;
 }
@@ -1513,16 +1496,19 @@ int __fastcall TMainForm::ASendVersion(TIdContext *AContext)
   Log->Add("FARA: запит версії");
 
   String msg = GetVersionInString(Application->ExeName.c_str());
-  TStringStream *ms = new TStringStream("", TEncoding::UTF8, true);
+  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
   int res = -1;
 
   try
 	 {
 	   ms->WriteString(msg);
 	   ms->Position = 0;
-	   res = AAnswerToClient(AContext, ms);
+	   res = AAnswerToClient(AContext, ms.get());
 	 }
-  __finally {delete ms;}
+  catch (Exception &e)
+	 {
+	   Log->Add("FARA::ASendVersion: " + e.ToString());
+	 }
 
   return res;
 }
@@ -1530,15 +1516,18 @@ int __fastcall TMainForm::ASendVersion(TIdContext *AContext)
 
 int __fastcall TMainForm::ASendStatusAnswer(TIdContext *AContext)
 {
-  TStringStream *ms = new TStringStream("#ok", TEncoding::UTF8, true);
+  auto ms = std::make_unique<TStringStream>("#ok", TEncoding::UTF8, true);
   int res = -1;
 
   try
 	 {
 	   ms->Position = 0;
-	   res = AAnswerToClient(AContext, ms);
+	   res = AAnswerToClient(AContext, ms.get());
 	 }
-  __finally {delete ms;}
+  catch (Exception &e)
+	 {
+	   Log->Add("FARA::ASendStatusAnswer: " + e.ToString());
+	 }
 
   return res;
 }
@@ -1552,7 +1541,7 @@ int __fastcall TMainForm::AAnswerToClient(TIdContext *AContext, TStringStream *m
 	 }
   catch (Exception &e)
 	 {
-	   Log->Add("FARA: " + e.ToString());
+	   Log->Add("FARA::AAnswerToClient: " + e.ToString());
 
 	   return -1;
 	 }
@@ -1641,16 +1630,12 @@ void __fastcall TMainForm::ExecuteScript(String ctrl_script_name)
 										 L"",
 										 ScriptLog);
 
-			   TStringList *lst = new TStringList();
+			   auto lst = std::make_unique<TStringList>();
 
-			   try
-				  {
-					StrToList(lst, eIface->ShowInfoMessages(), "\r\n");
+			   StrToList(lst.get(), eIface->ShowInfoMessages(), "\r\n");
 
-					for (int i = 0; i < lst->Count; i++)
-					   Log->Add(lst->Strings[i]);
-				  }
-				__finally {delete lst;}
+			   for (int i = 0; i < lst->Count; i++)
+			   	  Log->Add(lst->Strings[i]);
 			 }
 		  catch (Exception &e)
 			 {
@@ -1681,16 +1666,12 @@ void __fastcall TMainForm::ExecuteScript(const wchar_t *ctrl_script_text)
 
 		   eIface->RunScript(ctrl_script_text, L"", ScriptLog);
 
-		   TStringList *lst = new TStringList();
+		   auto lst = std::make_unique<TStringList>();
 
-		   try
-			  {
-				StrToList(lst, eIface->ShowInfoMessages(), "\r\n");
+		   StrToList(lst.get(), eIface->ShowInfoMessages(), "\r\n");
 
-				for (int i = 0; i < lst->Count; i++)
-				   Log->Add(lst->Strings[i]);
-			  }
-		   __finally {delete lst;}
+		   for (int i = 0; i < lst->Count; i++)
+			 Log->Add(lst->Strings[i]);
 		 }
 	  catch (Exception &e)
 		 {
@@ -1780,7 +1761,7 @@ TExchangeConnect* __fastcall TMainForm::CreateConnection(String file)
 	   res = ConnManager->Add(file, Log);
 
 	   if (!res)
-		 throw new Exception("З'єднання з конфігу " + file + " вже існує");
+		 throw Exception("З'єднання з конфігу " + file + " вже існує");
 
 	   if (!res->Initialized())
 		 {
@@ -1861,12 +1842,12 @@ void __fastcall TMainForm::CheckAndStartConnection(String file)
 
 void __fastcall TMainForm::CreateExistConnections()
 {
-  TStringList *conns = new TStringList();
+  auto conns = std::make_unique<TStringList>();
   String str;
 
   try
 	 {
-	   GetFileList(conns, DataPath, "*.cfg", WITHOUT_DIRS, WITHOUT_FULL_PATH);
+	   GetFileList(conns.get(), DataPath, "*.cfg", WITHOUT_DIRS, WITHOUT_FULL_PATH);
 
 	   for (int i = 0; i < conns->Count; i++)
 		  {
@@ -1874,7 +1855,10 @@ void __fastcall TMainForm::CreateExistConnections()
 		      CreateConnection(DataPath + "\\" + conns->Strings[i]);
 		  }
 	 }
-  __finally {delete conns;}
+  catch (Exception &e)
+	 {
+	   Log->Add("CreateExistConnections: " + e.ToString());
+	 }
 }
 //---------------------------------------------------------------------------
 

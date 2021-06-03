@@ -130,21 +130,41 @@ void __fastcall TServerForm::FormClose(TObject *Sender, TCloseAction &Action)
 	 {
 	   WriteSettings();
 
-	   StatusChecker->Terminate();
+	   if (StatusChecker)
+		 {
+		   if (StatusChecker->Started)
+			 {
+			   StatusChecker->Terminate();
 
-	   while (!StatusChecker->Finished)
-		 Sleep(100);
+			   HANDLE hThread = reinterpret_cast<HANDLE>(StatusChecker->Handle);
 
-	   delete StatusChecker;
+			   DWORD wait = WaitForSingleObject(hThread, 300);
+
+			   if (wait == WAIT_TIMEOUT)
+				 TerminateThread(hThread, 0);
+			 }
+
+		   delete StatusChecker;
+		 }
 
 	   StopServer();
 
-	   AddrBookChecker->Terminate();
+	   if (AddrBookChecker)
+		 {
+		   if (AddrBookChecker->Started)
+			 {
+			   AddrBookChecker->Terminate();
 
-	   while (!AddrBookChecker->Finished)
-		 Sleep(100);
+			   HANDLE hThread = reinterpret_cast<HANDLE>(AddrBookChecker->Handle);
 
-	   delete AddrBookChecker;
+			   DWORD wait = WaitForSingleObject(hThread, 300);
+
+			   if (wait == WAIT_TIMEOUT)
+				 TerminateThread(hThread, 0);
+			 }
+
+		   delete AddrBookChecker;
+		 }
 
 	   delete AddrBook;
 	   delete ConfigManager;
@@ -236,7 +256,7 @@ void __fastcall TServerForm::AddrListClick(TObject *Sender)
 		   ShowClientInfo(itm->Name, grp->Name, itm->Host, itm->Port);
 		 }
 	   else
-		 throw new Exception("Невідомий ID");
+		 throw Exception("Невідомий ID");
 	 }
   catch (Exception &e)
 	 {
@@ -247,83 +267,57 @@ void __fastcall TServerForm::AddrListClick(TObject *Sender)
 
 int __fastcall TServerForm::AskToClient(const wchar_t *host, int port, TStringStream *rw_bufer)
 {
-  TIdTCPClient *sender;
-  int res = 0;
+  std::unique_ptr<TIdTCPClient> sender(CreateSender(host, port));
 
   try
 	 {
-	   sender = CreateSender(host, port);
-
-	   try
-		  {
-			sender->Connect();
-			rw_bufer->Position = 0;
-			sender->IOHandler->Write(rw_bufer, rw_bufer->Size, true);
-		  }
-	   catch (Exception &e)
-		  {
-			WriteLog(String(host) + ":" +
-					 IntToStr(port) + " " +
-					 "помилка відправки даних: " +
-					 e.ToString());
-			res = -1;
-		  }
-
-       try
-		  {
-			rw_bufer->Clear();
-			sender->IOHandler->ReadStream(rw_bufer);
-		  }
-	   catch (Exception &e)
-		  {
-			WriteLog(String(host) + ":" +
-					 IntToStr(port) + " " +
-					 "помилка отримання даних: " +
-					 e.ToString());
-			res = -1;
-		  }
-
+	   sender->Connect();
 	   rw_bufer->Position = 0;
+	   sender->IOHandler->Write(rw_bufer, rw_bufer->Size, true);
 	 }
-  __finally
+  catch (Exception &e)
 	 {
-	   if (sender)
-		 FreeSender(sender);
+	   WriteLog(String(host) + ":" + IntToStr(port) + " " +
+				"помилка відправки даних: " + e.ToString());
+	   return -1;
 	 }
 
-  return res;
+  try
+	 {
+	   rw_bufer->Clear();
+	   sender->IOHandler->ReadStream(rw_bufer);
+	 }
+  catch (Exception &e)
+	 {
+	   WriteLog(String(host) + ":" +
+				IntToStr(port) + " " +
+				"помилка отримання даних: " +
+				e.ToString());
+	   return -1;
+	 }
+
+  rw_bufer->Position = 0;
+
+  return 0;
 }
 //---------------------------------------------------------------------------
 
 int __fastcall TServerForm::SendToClient(const wchar_t *host, int port, TStringStream *rw_bufer)
 {
-  TIdTCPClient *sender;
+  std::unique_ptr<TIdTCPClient> sender(CreateSender(host, port));
   int res = 0;
 
   try
 	 {
-	   try
-		  {
-            sender = CreateSender(host, port);
-			sender->Connect();
-			sender->IOHandler->Write(rw_bufer, rw_bufer->Size, true);
-		  }
-	   catch (Exception &e)
-		  {
-			WriteLog(String(host) + ":" +
-					 IntToStr(port) + " " +
-					 "помилка відправки даних: " +
-					 e.ToString());
-			res = -1;
-		  }
-
-	   rw_bufer->Clear();
+	   sender->Connect();
+	   sender->IOHandler->Write(rw_bufer, rw_bufer->Size, true);
 	 }
-  __finally
+  catch (Exception &e)
 	 {
-	   if (sender)
-		 FreeSender(sender);
+	   WriteLog(String(host) + ":" + IntToStr(port) + " помилка відправки даних: " + e.ToString());
 	 }
+
+  rw_bufer->Clear();
 
   return res;
 }
@@ -331,34 +325,20 @@ int __fastcall TServerForm::SendToClient(const wchar_t *host, int port, TStringS
 
 int __fastcall TServerForm::SendToClient(const wchar_t *host, int port, const String &data)
 {
-  TIdTCPClient *sender;
   int res = 0;
-  TStringStream *ms = new TStringStream("", TEncoding::UTF8, true);
+  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+  auto sender = std::make_unique<TIdTCPClient>(CreateSender(host, port));
 
   try
 	 {
-	   try
-		  {
-			sender = CreateSender(host, port);
-			sender->Connect();
-            ms->Position = 0;
-			sender->IOHandler->Write(ms, ms->Size, true);
-		  }
-	   catch (Exception &e)
-		  {
-			WriteLog(String(host) + ":" +
-					 IntToStr(port) + " " +
-					 "помилка відправки даних: " +
-					 e.ToString());
-			res = -1;
-		  }
+	   sender->Connect();
+	   ms->Position = 0;
+	   sender->IOHandler->Write(ms.get(), ms->Size, true);
 	 }
-  __finally
+  catch (Exception &e)
 	 {
-	   delete ms;
-
-	   if (sender)
-		 FreeSender(sender);
+	   WriteLog(String(host) + ":" + IntToStr(port) + " помилка відправки даних: " + e.ToString());
+	   res = -1;
 	 }
 
   return res;
@@ -367,12 +347,10 @@ int __fastcall TServerForm::SendToClient(const wchar_t *host, int port, const St
 
 TIdTCPClient* __fastcall TServerForm::CreateSender(const wchar_t *host, int port)
 {
-  TIdTCPClient *sender;
+  TIdTCPClient *sender = new TIdTCPClient(ServerForm);
 
   try
 	 {
-	   sender = new TIdTCPClient(ServerForm);
-
 	   sender->Host = host;
 	   sender->Port = port;
 	   sender->IPVersion = Id_IPv4;
@@ -381,34 +359,10 @@ TIdTCPClient* __fastcall TServerForm::CreateSender(const wchar_t *host, int port
 	 }
   catch (Exception &e)
 	 {
-	   sender = NULL;
 	   WriteLog("CreateSender: " + e.ToString());
 	 }
 
   return sender;
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TServerForm::FreeSender(TIdTCPClient *sender)
-{
-  try
-	 {
-	   if (sender)
-		 {
-		   if (sender->Connected())
-			 {
-			   sender->Disconnect();
-			   sender->Socket->Close();
-			 }
-
-		   delete sender;
-		 }
-	 }
-  catch (Exception &e)
-	 {
-	   sender = NULL;
-	   WriteLog("FreeSender: " + e.ToString());
-	 }
 }
 //---------------------------------------------------------------------------
 
@@ -552,30 +506,22 @@ void __fastcall TServerForm::ImportInAddrBookClick(TObject *Sender)
 				   grp = AddrBook->FindGroup("Несортоване");
 				 }
 
-			   TStringList *old_book = new TStringList();
-			   TStringList *lst = new TStringList();
+			   auto old_book = std::make_unique<TStringList>();
+			   auto lst = std::make_unique<TStringList>();
 
 			   old_book->LoadFromFile(OpenCfgDialog->FileName, TEncoding::UTF8);
 
-			   try
+			   for (int i = 0; i < old_book->Count; i++)
 				  {
-					for (int i = 0; i < old_book->Count; i++)
-					   {
-						 lst->Clear();
-						 StrToList(lst, old_book->Strings[i], ";");
-                         grp = AddrBook->FindGroup("Несортоване");
-						 AddrBook->Add(grp->ID,
-									   grp->Node,
-									   lst->Strings[0],
-									   lst->Strings[1],
-									   lst->Strings[2]);
+					lst->Clear();
+					StrToList(lst.get(), old_book->Strings[i], ";");
+					grp = AddrBook->FindGroup("Несортоване");
+					AddrBook->Add(grp->ID, grp->Node, lst->Strings[0], lst->Strings[1], lst->Strings[2]);
 
-						 WriteLog("Імпортовано запис: " + lst->Strings[0]);
-					   }
-
-                    WriteLog("Імпорт книги завершено");
+					WriteLog("Імпортовано запис: " + lst->Strings[0]);
 				  }
-			   __finally {delete lst; delete old_book;}
+
+			   WriteLog("Імпорт книги завершено");
 
 			   AddrBook->Save();
 
@@ -585,16 +531,12 @@ void __fastcall TServerForm::ImportInAddrBookClick(TObject *Sender)
 			 }
 		   else if (file_ext == "grp")
 			 {
-			   TRecpientItemCollection *ImportBook = new TRecpientItemCollection(OpenCfgDialog->FileName);
+			   auto ImportBook = std::make_unique<TRecpientItemCollection>(OpenCfgDialog->FileName);
 
-			   try
-				  {
-					AddrBook->ImportData(ImportBook);
-					AddrBook->CreateSortedTree(AddrList);
-					AddrBook->Save();
-					WriteLog("Імпорт книги завершено");
-				  }
-			   __finally{delete ImportBook;}
+			   AddrBook->ImportData(ImportBook.get());
+			   AddrBook->CreateSortedTree(AddrList);
+			   AddrBook->Save();
+			   WriteLog("Імпорт книги завершено");
 			 }
            else if (file_ext == "afl")
 			 ImportAddrAndLinks(OpenCfgDialog->FileName);
@@ -676,30 +618,26 @@ void __fastcall TServerForm::ExportHostStatus(const String &file)
 {
   try
 	 {
-	   TFileStream *fs = new TFileStream(file, fmOpenWrite|fmCreate);
+	   auto fs = std::make_unique<TFileStream>(file, fmOpenWrite|fmCreate);
 	   unsigned int id, status;
 
-	   try
+	   for (int i = 0; i < AddrBook->Count; i++)
 		  {
-			for (int i = 0; i < AddrBook->Count; i++)
-			   {
-				 if (AddrBook->Items[i]->ParentNodeID != 0)
-				   {
-                     id = AddrBook->Items[i]->ID;
+			if (AddrBook->Items[i]->ParentNodeID != 0)
+			  {
+				id = AddrBook->Items[i]->ID;
 
-					 if (AddrBook->Items[i]->Node->StateIndex == 3)
-					   status = 1;
-					 else
-					   status = 0;
+				if (AddrBook->Items[i]->Node->StateIndex == 3)
+				  status = 1;
+				else
+				  status = 0;
 
-					 fs->Position += fs->Write(&id, sizeof(unsigned int));
-				 	 fs->Position += fs->Write(&status, sizeof(unsigned int));
-				   }
-			   }
-
-			WriteLog("Експорт статусів завершено");
+				fs->Position += fs->Write(&id, sizeof(unsigned int));
+				fs->Position += fs->Write(&status, sizeof(unsigned int));
+			  }
 		  }
-       __finally {delete fs;}
+
+	   WriteLog("Експорт статусів завершено");
 	 }
   catch (Exception &e)
 	 {
@@ -751,53 +689,49 @@ void __fastcall TServerForm::ReadSettings()
 {
   try
 	 {
-       TRegistry *reg = new TRegistry(KEY_READ);
+	   auto reg = std::make_unique<TRegistry>(KEY_READ);
 
-	   try
-		  {
-			reg->RootKey = HKEY_CURRENT_USER;
+	   reg->RootKey = HKEY_CURRENT_USER;
 
-			if (reg->OpenKey("Software\\AFAConfigServer\\Form", false))
-			  {
-				if (reg->ValueExists("FullScreen"))
-				  FullScreen = reg->ReadBool("FullScreen");
-				else
-                  FullScreen = false;
+	   if (reg->OpenKey("Software\\AFAConfigServer\\Form", false))
+		 {
+		   if (reg->ValueExists("FullScreen"))
+			 FullScreen = reg->ReadBool("FullScreen");
+		   else
+			 FullScreen = false;
 
-				if (reg->ValueExists("HideWindow"))
-				  HideWnd = reg->ReadBool("HideWindow");
-				else
-				  HideWnd = false;
+		   if (reg->ValueExists("HideWindow"))
+			 HideWnd = reg->ReadBool("HideWindow");
+		   else
+			 HideWnd = false;
 
-				if (reg->ValueExists("Height"))
-				  ClientHeight = reg->ReadInteger("Height");
-				else
-				  ClientHeight = 600;
+		   if (reg->ValueExists("Height"))
+			 ClientHeight = reg->ReadInteger("Height");
+		   else
+			 ClientHeight = 600;
 
-				if (reg->ValueExists("Width"))
-				  ClientWidth = reg->ReadInteger("Width");
-				else
-				  ClientWidth = 800;
+		   if (reg->ValueExists("Width"))
+			 ClientWidth = reg->ReadInteger("Width");
+		   else
+			 ClientWidth = 800;
 
-				reg->CloseKey();
-			  }
+		   reg->CloseKey();
+		 }
 
-			if (reg->OpenKey("Software\\AFAConfigServer\\Params", false))
-			  {
-				if (reg->ValueExists("ListenPort"))
-				  ListenPort = reg->ReadInteger("ListenPort");
-				else
-				  reg->WriteInteger("ListenPort", 7896);
+	   if (reg->OpenKey("Software\\AFAConfigServer\\Params", false))
+		 {
+		   if (reg->ValueExists("ListenPort"))
+			 ListenPort = reg->ReadInteger("ListenPort");
+		   else
+			 reg->WriteInteger("ListenPort", 7896);
 
-				if (reg->ValueExists("ActivityCheckInterval"))
-				  ActivityCheckInterval = reg->ReadInteger("ActivityCheckInterval");
-				else
-				  ActivityCheckInterval = 1;
+		   if (reg->ValueExists("ActivityCheckInterval"))
+			 ActivityCheckInterval = reg->ReadInteger("ActivityCheckInterval");
+		   else
+			 ActivityCheckInterval = 1;
 
-				reg->CloseKey();
-			  }
-		  }
-	   __finally {delete reg;}
+		   reg->CloseKey();
+		 }
 	 }
   catch (Exception &e)
 	 {
@@ -810,40 +744,36 @@ void __fastcall TServerForm::WriteSettings()
 {
   try
 	 {
-       TRegistry *reg = new TRegistry();
+	   auto reg = std::make_unique<TRegistry>();
 
-	   try
-		  {
-			reg->RootKey = HKEY_CURRENT_USER;
+	   reg->RootKey = HKEY_CURRENT_USER;
 
-			if (!reg->KeyExists("Software\\AFAConfigServer\\Form"))
-			  reg->CreateKey("Software\\AFAConfigServer\\Form");
+	   if (!reg->KeyExists("Software\\AFAConfigServer\\Form"))
+		 reg->CreateKey("Software\\AFAConfigServer\\Form");
 
-			if (!reg->KeyExists("Software\\AFAConfigServer\\Params"))
-			  reg->CreateKey("Software\\AFAConfigServer\\Params");
+	   if (!reg->KeyExists("Software\\AFAConfigServer\\Params"))
+		 reg->CreateKey("Software\\AFAConfigServer\\Params");
 
-			if (reg->OpenKey("Software\\AFAConfigServer\\Form", false))
-			  {
-				reg->WriteInteger("Height", ClientHeight);
-				reg->WriteInteger("Width", ClientWidth);
+	   if (reg->OpenKey("Software\\AFAConfigServer\\Form", false))
+		 {
+		   reg->WriteInteger("Height", ClientHeight);
+		   reg->WriteInteger("Width", ClientWidth);
 
-				if (WindowState == wsMaximized)
-				  reg->WriteBool("FullScreen", FullScreen);
-				else
-				  reg->WriteBool("FullScreen", false);
+		   if (WindowState == wsMaximized)
+			 reg->WriteBool("FullScreen", FullScreen);
+		   else
+			 reg->WriteBool("FullScreen", false);
 
-				reg->CloseKey();
-			  }
+		   reg->CloseKey();
+		 }
 
-			if (reg->OpenKey("Software\\AFAConfigServer\\Params", false))
-			  {
-				reg->WriteInteger("ListenPort", ListenPort);
-				reg->WriteInteger("ActivityCheckInterval", ActivityCheckInterval);
+	   if (reg->OpenKey("Software\\AFAConfigServer\\Params", false))
+		 {
+		   reg->WriteInteger("ListenPort", ListenPort);
+		   reg->WriteInteger("ActivityCheckInterval", ActivityCheckInterval);
 
-				reg->CloseKey();
-			  }
-		  }
-	   __finally {delete reg;}
+		   reg->CloseKey();
+		 }
 	 }
   catch (Exception &e)
 	 {
@@ -854,15 +784,11 @@ void __fastcall TServerForm::WriteSettings()
 
 void __fastcall TServerForm::LogFilterDropDown(TObject *Sender)
 {
-  TStringList *logs = new TStringList();
+  auto logs = std::make_unique<TStringList>();
 
-  try
-	 {
-       LogFilter->Clear();
-	   GetFileList(logs, LogDir, "*.log", WITHOUT_DIRS, WITHOUT_FULL_PATH);
-	   LogFilter->Items->AddStrings(logs);
-	 }
-  __finally {delete logs;}
+  LogFilter->Clear();
+  GetFileList(logs.get(), LogDir, "*.log", WITHOUT_DIRS, WITHOUT_FULL_PATH);
+  LogFilter->Items->AddStrings(logs.get());
 }
 //---------------------------------------------------------------------------
 
@@ -876,112 +802,94 @@ void __fastcall TServerForm::LogFilterChange(TObject *Sender)
 void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 {
   String msg;
-  TStringStream *ms = new TStringStream("", TEncoding::UTF8, true);
-  TStringList *list = new TStringList();
+  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+  auto list = std::make_unique<TStringList>();
 
-  AContext->Connection->IOHandler->ReadStream(ms);
+  AContext->Connection->IOHandler->ReadStream(ms.get());
 
   try
 	 {
-	   try
-		  {
-			ms->Position = 0;
-			msg = ms->ReadString(ms->Size);
+	   ms->Position = 0;
+	   msg = ms->ReadString(ms->Size);
 
-			if (msg == "")
-              throw new Exception("Відсутні дані");
+	   if (msg == "")
+		 throw Exception("Відсутні дані");
 
-			StrToList(list, msg, "%");
+	   StrToList(list.get(), msg, "%");
 
-			String host = AContext->Binding->PeerIP;
+	   String host = AContext->Binding->PeerIP;
 
-			if (list->Strings[0] == "#auth")
-			  {
-				String station = list->Strings[1],
-					   index = list->Strings[2],
-				   	   port = list->Strings[3];
-				int grp_id = -1;
+	   if (list->Strings[0] == "#auth")
+		 {
+		   String station = list->Strings[1],
+				  index = list->Strings[2],
+				  port = list->Strings[3];
+
+		   int grp_id = -1;
 
 //тепер перевіряємо чи є відповідні група і хост
-				RecipientItem *grp = AddrBook->FindGroup(index);
+		   RecipientItem *grp = AddrBook->FindGroup(index);
 
-				if (!grp)
-				  {
-					grp_id = AddrBook->Add(0, AddrList->Items->Add(AddrList->Selected, index), index);
-					AddrBookChecker->CollectionChanged = true;
-					grp = AddrBook->FindGroup(grp_id);
-				  }
+		   if (!grp)
+			 {
+			   grp_id = AddrBook->Add(0, AddrList->Items->Add(AddrList->Selected, index), index);
+			   AddrBookChecker->CollectionChanged = true;
+			   grp = AddrBook->FindGroup(grp_id);
+			 }
 
-				RecipientItem *itm = AddrBook->FindRecipientInGroup(grp->ID, station);
+		   RecipientItem *itm = AddrBook->FindRecipientInGroup(grp->ID, station);
 
-				if (!itm)
-				  {
-					itm = AddrBook->FindItem(AddrBook->Add(grp->ID, grp->Node, station, host, port));
-					AddrBook->CreateSortedTree(AddrList);
-					AddrBookChecker->CollectionChanged = true;
-				  }
-				else if ((itm->Host != host) || (itm->Port != port))
-				  {
-					itm->Host = host;
-					itm->Port = port;
-					AddrBookChecker->CollectionChanged = true;
+		   if (!itm)
+			 {
+			   itm = AddrBook->FindItem(AddrBook->Add(grp->ID, grp->Node, station, host, port));
+			   AddrBook->CreateSortedTree(AddrList);
+			   AddrBookChecker->CollectionChanged = true;
+			 }
+		   else if ((itm->Host != host) || (itm->Port != port))
+			 {
+			   itm->Host = host;
+			   itm->Port = port;
+			   AddrBookChecker->CollectionChanged = true;
 
-					if (itm->Node == AddrList->Selected)
-					  ShowClientInfo(itm->Name, grp->Name, itm->Host, itm->Port);
-				  }
+			   if (itm->Node == AddrList->Selected)
+			     ShowClientInfo(itm->Name, grp->Name, itm->Host, itm->Port);
+			 }
 
-                itm->Node->StateIndex = 3;
+		   itm->Node->StateIndex = 3;
 
 //надсилаємо хосту перелік файлів
-				ms->Clear();
-				ms->WriteString(CreateClientFileList(index, station));
-                ms->Position = 0;
-				AContext->Connection->IOHandler->Write(ms, ms->Size, true);
-			  }
-			else if (list->Strings[0] == "#request")
-			  {
-				TFileStream *fs = new TFileStream(list->Strings[1], fmOpenRead|fmShareDenyNone);
+		   ms->Clear();
+		   ms->WriteString(CreateClientFileList(index, station));
+		   ms->Position = 0;
+		   AContext->Connection->IOHandler->Write(ms.get(), ms->Size, true);
+		 }
+	   else if (list->Strings[0] == "#request")
+		 {
+		   auto fs = std::make_unique<TFileStream>(list->Strings[1], fmOpenRead|fmShareDenyNone);
+		   fs->Position = 0;
+		   AContext->Connection->IOHandler->Write(fs.get(), fs->Size, true);
+		 }
+	   else if (list->Strings[0] == "#getaddrbook")
+		 {
+		   auto fs = std::make_unique<TFileStream>(DataDir + "\\hosts.grp",
+		   										   fmOpenRead|fmShareDenyNone);
+		   fs->Position = 0;
+		   AContext->Connection->IOHandler->Write(fs.get(), fs->Size, true);
+		 }
+	   else if (list->Strings[0] == "#gethoststatus")
+		 {
+		   ExportHostStatus(DataDir + "\\hosts.sts");
 
-				try
-				   {
-					 fs->Position = 0;
-					 AContext->Connection->IOHandler->Write(fs, fs->Size, true);
-				   }
-				__finally {delete fs;}
-			  }
-			else if (list->Strings[0] == "#getaddrbook")
-			  {
-				TFileStream *fs = new TFileStream(DataDir + "\\hosts.grp",
-												  fmOpenRead|fmShareDenyNone);
-
-				try
-				   {
-					 fs->Position = 0;
-					 AContext->Connection->IOHandler->Write(fs, fs->Size, true);
-				   }
-				__finally {delete fs;}
-			  }
-			else if (list->Strings[0] == "#gethoststatus")
-			  {
-				ExportHostStatus(DataDir + "\\hosts.sts");
-
-				TFileStream *fs = new TFileStream(DataDir + "\\hosts.sts",
-												  fmOpenRead|fmShareDenyNone);
-
-				try
-				   {
-					 fs->Position = 0;
-					 AContext->Connection->IOHandler->Write(fs, fs->Size, true);
-				   }
-				__finally {delete fs;}
-			  }
-		  }
-	   catch (Exception &e)
-		  {
-			WriteLog("Listener: " + e.ToString());
-		  }
+		   auto fs = std::make_unique<TFileStream>(DataDir + "\\hosts.sts",
+												   fmOpenRead|fmShareDenyNone);
+		   fs->Position = 0;
+		   AContext->Connection->IOHandler->Write(fs.get(), fs->Size, true);
+		 }
 	 }
-  __finally {delete list; delete ms;}
+  catch (Exception &e)
+	 {
+	   WriteLog("Listener: " + e.ToString());
+	 }
 }
 //---------------------------------------------------------------------------
 
@@ -1044,42 +952,34 @@ void __fastcall TServerForm::ExportAddrAndLinks(const String &file)
        AddrBook->Save();
 	   ConfigManager->SaveToFile(DataDir + "\\config.links");
 
-	   TFileStream *result_file = new TFileStream(file, fmOpenWrite|fmCreate);
+	   auto result_file = std::make_unique<TFileStream>(file, fmOpenWrite|fmCreate);
 
 	   try
 		  {
 			__int64 sz;
-			Byte *buf;
 
-			TFileStream *addr_file = new TFileStream(DataDir + "\\hosts.grp", fmOpenRead|fmShareDenyNone);
+			auto addr_file = std::make_unique<TFileStream>(DataDir + "\\hosts.grp",
+														   fmOpenRead|fmShareDenyNone);
+			sz = addr_file->Size;
 
-			try
-			   {
-				 sz = addr_file->Size;
+			auto buf = std::make_unique<Byte[]>(sz);
 
-				 buf = new Byte[sz];
+			addr_file->Read(buf.get(), sz);
+			result_file->Position += result_file->Write(&sz, sizeof(__int64));
+			result_file->Position += result_file->Write(buf.get(), sz);
+			buf.release();
 
-				 addr_file->Read(buf, sz);
-				 result_file->Position += result_file->Write(&sz, sizeof(__int64));
-				 result_file->Position += result_file->Write(buf, sz);
-			   }
-			__finally {delete addr_file; delete[] buf;}
+			auto links_file = std::make_unique<TFileStream>(DataDir + "\\config.links",
+															fmOpenRead|fmShareDenyNone);
 
-			TFileStream *links_file = new TFileStream(DataDir + "\\config.links", fmOpenRead|fmShareDenyNone);
+			sz = links_file->Size;
+			auto buf2 = std::make_unique<Byte[]>(sz);
 
-			try
-			   {
-				 sz = links_file->Size;
-
-				 buf = new Byte[sz];
-
-				 addr_file->Read(buf, sz);
-				 result_file->Position += result_file->Write(&sz, sizeof(sz));
-				 result_file->Position += result_file->Write(buf, sz);
-			   }
-			__finally {delete links_file; delete[] buf;}
+			addr_file->Read(buf2.get(), sz);
+			result_file->Position += result_file->Write(&sz, sizeof(sz));
+			result_file->Position += result_file->Write(buf2.get(), sz);
 		  }
-	   __finally {delete result_file; StatusChecker->Resume();}
+	   __finally {StatusChecker->Resume();}
 	 }
   catch (Exception &e)
 	 {
@@ -1094,43 +994,36 @@ void __fastcall TServerForm::ImportAddrAndLinks(const String &file)
 	 {
 	   StatusChecker->Suspend();
 
-	   TFileStream *result_file = new TFileStream(file, fmOpenRead|fmShareDenyNone);
+	   auto result_file = std::make_unique<TFileStream>(file, fmOpenRead|fmShareDenyNone);
 
 	   try
 		  {
 			__int64 sz;
-			Byte *buf;
+			auto addr_file = std::make_unique<TFileStream>(DataDir + "\\hosts.grp",
+														   fmOpenWrite|fmCreate);
 
-			TFileStream *addr_file = new TFileStream(DataDir + "\\hosts.grp", fmOpenWrite|fmCreate);
+			result_file->Position += result_file->Read(&sz, sizeof(__int64));
 
-			try
-			   {
-				 result_file->Position += result_file->Read(&sz, sizeof(__int64));
+			auto buf = std::make_unique<Byte[]>(sz);
 
-				 buf = new Byte[sz];
+			result_file->Position += result_file->Read(buf.get(), sz);
+			addr_file->Write(buf.get(), sz);
+			buf.release();
 
-				 result_file->Position += result_file->Read(buf, sz);
-                 addr_file->Write(buf, sz);
-			   }
-			__finally {delete addr_file; delete[] buf;}
+			auto links_file = std::make_unique<TFileStream>(DataDir + "\\config.links",
+															fmOpenWrite|fmCreate);
 
-			TFileStream *links_file = new TFileStream(DataDir + "\\config.links", fmOpenWrite|fmCreate);
+			result_file->Position += result_file->Read(&sz, sizeof(__int64));
 
-			try
-			   {
-				 result_file->Position += result_file->Read(&sz, sizeof(__int64));
+			auto buf2 = std::make_unique<Byte[]>(sz);
 
-				 buf = new Byte[sz];
-
-				 result_file->Position += result_file->Read(buf, sz);
-				 links_file->Write(buf, sz);
-			   }
-			__finally {delete links_file; delete[] buf;}
+			result_file->Position += result_file->Read(buf2.get(), sz);
+			links_file->Write(buf2.get(), sz);
 
 			AddrBook->LoadFromFile(DataDir + "\\hosts.grp");
 			ConfigManager->LoadFromFile(DataDir + "\\config.links");
 		  }
-	   __finally {delete result_file; StatusChecker->Resume();}
+	   __finally {StatusChecker->Resume();}
 	 }
   catch (Exception &e)
 	 {
@@ -1209,12 +1102,12 @@ void __fastcall TServerForm::AddConfigClick(TObject *Sender)
                        AddrListClick(AddrList);
 					 }
 				   else
-					 throw new Exception("Невідомий ID групи");
+					 throw Exception("Невідомий ID групи");
 				 }
 			 }
 		 }
 	   else
-		 throw new Exception("Невідомий ID отримувача");
+		 throw Exception("Невідомий ID отримувача");
 	 }
   catch (Exception &e)
 	 {
@@ -1253,11 +1146,11 @@ void __fastcall TServerForm::RemoveConfigClick(TObject *Sender)
 				   AddrListClick(AddrList);
 				 }
 			   else
-				 throw new Exception("Невідомий ID групи");
+				 throw Exception("Невідомий ID групи");
 			 }
 		 }
 	   else
-		 throw new Exception("Невідомий ID");
+		 throw Exception("Невідомий ID");
 	 }
   catch (Exception &e)
 	 {

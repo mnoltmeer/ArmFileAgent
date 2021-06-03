@@ -39,16 +39,16 @@ bool __fastcall TUpdateThread::NeedToUpdateAgent()
 	  int current_version[4] = {0,0,0,0}, candidate_version[4] = {0,0,0,0};
 
 	  try {GetAppVersion(FUpdatePath.c_str(), candidate_version);}
-	  catch (Exception &e){throw new Exception("Не вдалося отримати версію файлу оновлення");}
+	  catch (Exception &e){throw Exception("Не вдалося отримати версію файлу оновлення");}
 
 	  try {GetAppVersion(FAgentPath.c_str(), current_version);}
-	  catch (Exception &e){throw new Exception("Не вдалося отримати версію файлу Агента");}
+	  catch (Exception &e){throw Exception("Не вдалося отримати версію файлу Агента");}
 
 	  try {agent_date = GetFileDateTime(FAgentPath);}
-	  catch (Exception &e){throw new Exception("Не вдалося отримати дату змін файлу Агента");}
+	  catch (Exception &e){throw Exception("Не вдалося отримати дату змін файлу Агента");}
 
 	  try {agent_size = GetFileSize(FAgentPath);}
-	  catch (Exception &e){throw new Exception("Не вдалося отримати розмір файлу Агента");}
+	  catch (Exception &e){throw Exception("Не вдалося отримати розмір файлу Агента");}
 
 	  if (CompareVersions(current_version, candidate_version) == 2)
 		{
@@ -123,7 +123,7 @@ void __fastcall TUpdateThread::TerminateAgent()
 	   proc = OpenProcess(PROCESS_TERMINATE, 0, agent_pid);
 
        if (proc == INVALID_HANDLE_VALUE)
-		 throw new Exception("Не вдалось отримати доступ до процесу Агента");
+		 throw Exception("Не вдалось отримати доступ до процесу Агента");
 
 	   try
 		  {

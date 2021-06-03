@@ -102,8 +102,7 @@ private:	// User declarations
 	int __fastcall SendToClient(const wchar_t *host, int port, TStringStream *rw_bufer);
     int __fastcall SendToClient(const wchar_t *host, int port, const String &data);
 	TIdTCPClient* __fastcall CreateSender(const wchar_t *host, int port);
-	void __fastcall FreeSender(TIdTCPClient *sender);
-    void __fastcall StartServer();
+	void __fastcall StartServer();
 	void __fastcall StopServer();
 	String __fastcall CreateClientFileList(const String &index, const String &station);
     void __fastcall WriteSettings();

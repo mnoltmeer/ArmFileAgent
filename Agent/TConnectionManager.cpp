@@ -21,7 +21,7 @@ void TConnectionManager::FDestroyConnections()
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("TConnectionManager::FDestroyConnections: " + e.ToString());
+	   throw Exception("TConnectionManager::FDestroyConnections: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -29,12 +29,12 @@ void TConnectionManager::FDestroyConnections()
 TExchangeConnect *TConnectionManager::ReadConns(int ind)
 {
   if (ind < 0)
-	throw new Exception("TConnectionManager::Connections: Out of bounds!");
+	throw Exception("TConnectionManager::Connections: Out of bounds!");
   else if (ind < FConns.size())
 	return FConns[ind];
   else
 	{
-	  throw new Exception("TConnectionManager::Connections: Out of bounds!");
+	  throw Exception("TConnectionManager::Connections: Out of bounds!");
     }
 }
 //---------------------------------------------------------------------------
@@ -42,23 +42,23 @@ TExchangeConnect *TConnectionManager::ReadConns(int ind)
 void TConnectionManager::WriteConns(int ind, TExchangeConnect *conn)
 {
   if (ind < 0)
-	throw new Exception("TConnectionManager::Connections: Out of bounds!");
+	throw Exception("TConnectionManager::Connections: Out of bounds!");
   else if (ind < FConns.size())
 	FConns[ind] = conn;
   else
-	throw new Exception("TConnectionManager::Connections: Out of bounds!");
+	throw Exception("TConnectionManager::Connections: Out of bounds!");
 }
 //---------------------------------------------------------------------------
 
 TAMThread *TConnectionManager::ReadThreads(int ind)
 {
   if (ind < 0)
-	throw new Exception("TConnectionManager::Threads: Out of bounds!");
+	throw Exception("TConnectionManager::Threads: Out of bounds!");
   else if (ind < FThreadList.size())
 	return FThreadList[ind];
   else
 	{
-	  throw new Exception("TConnectionManager::Threads: Out of bounds!");
+	  throw Exception("TConnectionManager::Threads: Out of bounds!");
     }
 }
 //---------------------------------------------------------------------------
@@ -66,11 +66,11 @@ TAMThread *TConnectionManager::ReadThreads(int ind)
 void TConnectionManager::WriteThreads(int ind, TAMThread *th)
 {
   if (ind < 0)
-	throw new Exception("TConnectionManager::Threads: Out of bounds!");
+	throw Exception("TConnectionManager::Threads: Out of bounds!");
   else if (ind < FThreadList.size())
 	FThreadList[ind] = th;
   else
-	throw new Exception("TConnectionManager::Threads: Out of bounds!");
+	throw Exception("TConnectionManager::Threads: Out of bounds!");
 }
 //---------------------------------------------------------------------------
 
@@ -85,7 +85,7 @@ TExchangeConnect * TConnectionManager::Add(TThreadSafeLog *Log)
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("TConnectionManager::Add: " + e.ToString());
+	   throw Exception("TConnectionManager::Add: " + e.ToString());
 	 }
 
   return res;
@@ -107,7 +107,7 @@ TExchangeConnect * TConnectionManager::Add(String cfg_file, TThreadSafeLog *Log)
   catch (Exception &e)
 	 {
 	   res = NULL;
-	   throw new Exception("TConnectionManager::Add: " + e.ToString());
+	   throw Exception("TConnectionManager::Add: " + e.ToString());
 	 }
 
   return res;
@@ -122,7 +122,7 @@ void TConnectionManager::Add(TExchangeConnect *conn)
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("TConnectionManager::Add: " + e.ToString());
+	   throw Exception("TConnectionManager::Add: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -136,7 +136,7 @@ void TConnectionManager::Remove(int ind)
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("TConnectionManager::Remove: " + e.ToString());
+	   throw Exception("TConnectionManager::Remove: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -152,7 +152,7 @@ void TConnectionManager::Remove(const String &caption)
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("TConnectionManager::Remove: " + e.ToString());
+	   throw Exception("TConnectionManager::Remove: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -168,7 +168,7 @@ void TConnectionManager::Remove(TExchangeConnect *conn)
 	 }
   catch (Exception &e)
 	 {
-	   throw new Exception("TConnectionManager::Remove: " + e.ToString());
+	   throw Exception("TConnectionManager::Remove: " + e.ToString());
 	 }
 }
 //---------------------------------------------------------------------------
@@ -191,7 +191,7 @@ int TConnectionManager::IndexOf(const String &caption)
   catch (Exception &e)
 	 {
 	   res = -1;
-	   throw new Exception("TConnectionManager::IndexOf: " + e.ToString());
+	   throw Exception("TConnectionManager::IndexOf: " + e.ToString());
 	 }
 
   return res;
@@ -216,7 +216,7 @@ int TConnectionManager::IndexOf(const wchar_t *cfg_file)
   catch (Exception &e)
 	 {
 	   res = -1;
-	   throw new Exception("TConnectionManager::IndexOf: " + e.ToString());
+	   throw Exception("TConnectionManager::IndexOf: " + e.ToString());
 	 }
 
   return res;
@@ -241,7 +241,7 @@ int TConnectionManager::IndexOf(TExchangeConnect *conn)
   catch (Exception &e)
 	 {
 	   res = -1;
-	   throw new Exception("TConnectionManager::IndexOf: " + e.ToString());
+	   throw Exception("TConnectionManager::IndexOf: " + e.ToString());
 	 }
 
   return res;
@@ -289,7 +289,7 @@ TAMThread* TConnectionManager::AddThread(TExchangeConnect *conn)
 	 {
 	   res = NULL;
 
-	   throw new Exception("TConnectionManager::AddThread: " + e.ToString());
+	   throw Exception("TConnectionManager::AddThread: " + e.ToString());
 	 }
 
   return res;
@@ -340,13 +340,13 @@ void TConnectionManager::Run(TExchangeConnect *conn)
 			}
 		  else
 			{
-			  throw new Exception("З'єднання з ID " + IntToStr(conn->ID) + " не ініціалізоване!");
+			  throw Exception("З'єднання з ID " + IntToStr(conn->ID) + " не ініціалізоване!");
             }
 		}
 	}
   else
 	{
-	  throw new Exception("Помилковий вказівник TExchangeConnect*");
+	  throw Exception("Помилковий вказівник TExchangeConnect*");
 	}
 }
 //---------------------------------------------------------------------------
@@ -360,14 +360,14 @@ void TConnectionManager::Resume(TExchangeConnect *conn)
 
 	  if (!FindThread(conn->ThreadID))
 		{
-		  throw new Exception("Зі з'єднанням " + IntToStr(conn->ID) + ":" +
+		  throw Exception("Зі з'єднанням " + IntToStr(conn->ID) + ":" +
 							  conn->Caption +
 							  " не пов'язано жодного потоку!");
 		}
 	}
   else
 	{
-	  throw new Exception("Помилковий вказівник TExchangeConnect*");
+	  throw Exception("Помилковий вказівник TExchangeConnect*");
 	}
 }
 //---------------------------------------------------------------------------
@@ -394,13 +394,13 @@ void TConnectionManager::Stop(TExchangeConnect *conn)
 		}
       else
 		{
-		  throw new Exception("Помилковий ID потоку " + conn->Caption +
+		  throw Exception("Помилковий ID потоку " + conn->Caption +
 							  ", поток: " + IntToStr((int)conn->ThreadID));
 		}
 	}
   else
 	{
-	  throw new Exception("Помилковий вказівник TExchangeConnect*");
+	  throw Exception("Помилковий вказівник TExchangeConnect*");
 	}
 }
 //---------------------------------------------------------------------------
@@ -415,7 +415,7 @@ void TConnectionManager::Run(int id)
 	}
   else
 	{
-	  throw new Exception("Помилковий вказівник TExchangeConnect*");
+	  throw Exception("Помилковий вказівник TExchangeConnect*");
 	}
 }
 //---------------------------------------------------------------------------
@@ -430,7 +430,7 @@ void TConnectionManager::Resume(int id)
 	}
   else
 	{
-	  throw new Exception("Помилковий вказівник TExchangeConnect*");
+	  throw Exception("Помилковий вказівник TExchangeConnect*");
 	}
 }
 //---------------------------------------------------------------------------
@@ -445,7 +445,7 @@ void TConnectionManager::Stop(int id)
 	}
   else
 	{
-	  throw new Exception("Помилковий вказівник TExchangeConnect*");
+	  throw Exception("Помилковий вказівник TExchangeConnect*");
 	}
 }
 //---------------------------------------------------------------------------
@@ -460,7 +460,7 @@ void TConnectionManager::Run(const String &caption)
 	}
   else
 	{
-	  throw new Exception("Помилковий вказівник TExchangeConnect*");
+	  throw Exception("Помилковий вказівник TExchangeConnect*");
 	}
 }
 //---------------------------------------------------------------------------
@@ -475,7 +475,7 @@ void TConnectionManager::Resume(const String &caption)
 	}
   else
 	{
-	  throw new Exception("Помилковий вказівник TExchangeConnect*");
+	  throw Exception("Помилковий вказівник TExchangeConnect*");
 	}
 }
 //---------------------------------------------------------------------------
@@ -490,7 +490,7 @@ void TConnectionManager::Stop(const String &caption)
 	}
   else
 	{
-	  throw new Exception("Помилковий вказівник TExchangeConnect*");
+	  throw Exception("Помилковий вказівник TExchangeConnect*");
 	}
 }
 //---------------------------------------------------------------------------

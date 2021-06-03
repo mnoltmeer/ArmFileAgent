@@ -236,25 +236,21 @@ int TExchangeConnect::ReadConfig(String cfg_file)
 	   else if (str != "")
 		 {
 		   short h, m;
-		   TStringList *lst = new TStringList();
+		   auto lst = std::make_unique<TStringList>();
+
+		   StrToList(lst.get(), str, ":");
 
 		   try
 			  {
-				StrToList(lst, str, ":");
-
-				try
-				   {
-					 h = lst->Strings[0].ToInt();
-					 m = lst->Strings[1].ToInt();
-					 FConfig.StartAtTime = TTime(h, m, 0, 0);
-				   }
-				catch (Exception &e)
-				   {
-					 FConfig.StartAtTime = -1;
-					 WriteLog("Помилка створення параметру StartAtTime: " + e.ToString());
-				   }
+				h = lst->Strings[0].ToInt();
+				m = lst->Strings[1].ToInt();
+				FConfig.StartAtTime = TTime(h, m, 0, 0);
 			  }
-		   __finally {delete lst;}
+		   catch (Exception &e)
+			  {
+				FConfig.StartAtTime = -1;
+				WriteLog("Помилка створення параметру StartAtTime: " + e.ToString());
+			  }
 		 }
 	   else
 		 {
@@ -530,18 +526,41 @@ int TExchangeConnect::Exchange()
 
   if (FConfig.EnableDownload)
 	{
-	  TStringList *dl_dirs = new TStringList();
+	  auto dl_dirs = std::make_unique<TStringList>();
 
 	  try
 		 {
-		   try
-			  {
-				SuccessFiles->Clear();
-				ExchageExitCode dl;
+		   SuccessFiles->Clear();
+		   ExchageExitCode dl;
 
-				if (FConfig.RemDirDl == "")
+		   if (FConfig.RemDirDl == "")
+			 {
+			   dl = DownLoad("",
+							 FConfig.DownloadFilesMask,
+							 FConfig.LocDirDl,
+							 FConfig.BackUpDirDl);
+
+			   if ((dl == EE_NO_FILES) || (dl == EE_ERROR))
+				 dl_res = false;
+			   else if (dl_res && ((dl == EE_NO_FILES) || (dl == EE_ERROR)))
+				 dl_res = true;
+			   else
+				 dl_res = true;
+
+			   if (!FConfig.LeaveRemoteFiles)
+				 DeleteFilesFromServer(SuccessFiles);
+			 }
+		   else
+			 {
+			   StrToList(dl_dirs.get(), FConfig.RemDirDl, ";");
+
+			   for (int i = 0; i < dl_dirs->Count; i++)
 				  {
-					dl = DownLoad("",
+					int lc = SubDirLevelCount(dl_dirs->Strings[i]);
+
+					FtpLoader->ChangeDir(dl_dirs->Strings[i]);
+
+					dl = DownLoad(dl_dirs->Strings[i],
 								  FConfig.DownloadFilesMask,
 								  FConfig.LocDirDl,
 								  FConfig.BackUpDirDl);
@@ -553,63 +572,56 @@ int TExchangeConnect::Exchange()
 					else
 					  dl_res = true;
 
-                    if (!FConfig.LeaveRemoteFiles)
-					  DeleteFilesFromServer(SuccessFiles);
+					ReturnToRoot(lc);
 				  }
-				else
-				  {
-					StrToList(dl_dirs, FConfig.RemDirDl, ";");
 
-					for (int i = 0; i < dl_dirs->Count; i++)
-					   {
-						 int lc = SubDirLevelCount(dl_dirs->Strings[i]);
-
-						 FtpLoader->ChangeDir(dl_dirs->Strings[i]);
-
-						 dl = DownLoad(dl_dirs->Strings[i],
-									   FConfig.DownloadFilesMask,
-									   FConfig.LocDirDl,
-									   FConfig.BackUpDirDl);
-
-						 if ((dl == EE_NO_FILES) || (dl == EE_ERROR))
-						   dl_res = false;
-						 else if (dl_res && ((dl == EE_NO_FILES) || (dl == EE_ERROR)))
-						   dl_res = true;
-						 else
-						   dl_res = true;
-
-						 ReturnToRoot(lc);
-					   }
-
-					if (!FConfig.LeaveRemoteFiles)
-					  DeleteFilesFromServer(SuccessFiles);
-				  }
-			  }
-		   catch (Exception &e)
-			  {
-				WriteLog("Обмін з сервером: " + e.ToString());
-				dl_res = false;
-			  }
+			   if (!FConfig.LeaveRemoteFiles)
+				 DeleteFilesFromServer(SuccessFiles);
+			 }
 		 }
-	  __finally {delete dl_dirs;}
+	  catch (Exception &e)
+		 {
+		   WriteLog("Обмін з сервером: " + e.ToString());
+		   dl_res = false;
+		 }
 	}
 
   if (FConfig.EnableUpload)
 	{
-	  TStringList *ul_dirs = new TStringList();
+	  auto ul_dirs = std::make_unique<TStringList>();
 
 	  try
 		 {
-		   try
-			  {
-                SuccessFiles->Clear();
-				ExchageExitCode ul;
+		   SuccessFiles->Clear();
+		   ExchageExitCode ul;
 
-				if (FConfig.RemDirUl == "")
+		   if (FConfig.RemDirUl == "")
+			 {
+			   ul = UpLoad(FConfig.LocDirUl,
+						   FConfig.UploadFilesMask,
+						   "",
+						   FConfig.BackUpDirUl);
+
+			   if ((ul == EE_NO_FILES) || (ul == EE_ERROR))
+				 ul_res = false;
+			   else if (ul_res && ((ul == EE_NO_FILES) || (ul == EE_ERROR)))
+				 ul_res = true;
+			   else
+				 ul_res = true;
+			 }
+		   else
+			 {
+			   StrToList(ul_dirs.get(), FConfig.RemDirUl, ";");
+
+			   for (int i = 0; i < ul_dirs->Count; i++)
 				  {
+					int lc = SubDirLevelCount(ul_dirs->Strings[i]);
+
+					FtpLoader->ChangeDir(ul_dirs->Strings[i]);
+
 					ul = UpLoad(FConfig.LocDirUl,
 								FConfig.UploadFilesMask,
-								"",
+								ul_dirs->Strings[i],
 								FConfig.BackUpDirUl);
 
 					if ((ul == EE_NO_FILES) || (ul == EE_ERROR))
@@ -618,42 +630,18 @@ int TExchangeConnect::Exchange()
 					  ul_res = true;
 					else
 					  ul_res = true;
+
+					ReturnToRoot(lc);
 				  }
-				else
-				  {
-					StrToList(ul_dirs, FConfig.RemDirUl, ";");
+			 }
 
-					for (int i = 0; i < ul_dirs->Count; i++)
-					   {
-						 int lc = SubDirLevelCount(ul_dirs->Strings[i]);
-
-						 FtpLoader->ChangeDir(ul_dirs->Strings[i]);
-
-						 ul = UpLoad(FConfig.LocDirUl,
-									 FConfig.UploadFilesMask,
-									 ul_dirs->Strings[i],
-									 FConfig.BackUpDirUl);
-
-						 if ((ul == EE_NO_FILES) || (ul == EE_ERROR))
-						   ul_res = false;
-						 else if (ul_res && ((ul == EE_NO_FILES) || (ul == EE_ERROR)))
-						   ul_res = true;
-						 else
-						   ul_res = true;
-
-                         ReturnToRoot(lc);
-					   }
-				  }
-
-                if (!FConfig.LeaveLocalFiles)
-				  DeleteFiles(SuccessFiles);
-			  }
-		   catch (Exception &e)
-			  {
-				WriteLog("Обмін з сервером: " + e.ToString());
-			  }
+		   if (!FConfig.LeaveLocalFiles)
+			 DeleteFiles(SuccessFiles);
 		 }
-	  __finally {delete ul_dirs;}
+	  catch (Exception &e)
+		 {
+		   WriteLog("Обмін з сервером: " + e.ToString());
+		 }
 	}
 
   if (dl_res && ul_res)
@@ -771,7 +759,7 @@ int TExchangeConnect::BackUpFiles(TStringList *files, String destin)
 
 int TExchangeConnect::GetFTPFile(String source, String destin, int list_index)
 {
-  TMemoryStream *ms = new TMemoryStream();
+  auto ms = std::make_unique<TMemoryStream>();
   int res;
 
   String src_name = source;
@@ -780,7 +768,7 @@ int TExchangeConnect::GetFTPFile(String source, String destin, int list_index)
 
   try
 	 {
-	   FtpLoader->Get(src_name, ms);
+	   FtpLoader->Get(src_name, ms.get());
 	   ms->SaveToFile(destin);
 //змінюємо дату та час файла на ті, що були у оригінала на сервері
 	   OFSTRUCT of;
@@ -814,7 +802,10 @@ int TExchangeConnect::GetFTPFile(String source, String destin, int list_index)
 				" до: " + destin);
 	   res = 1;
 	 }
-  __finally {delete ms;}
+  catch (Exception &e)
+	 {
+	   WriteLog("GetFTPFile: " + e.ToString());
+	 }
 
   return res;
 }
@@ -829,14 +820,14 @@ int TExchangeConnect::LoadFilesFromServer(String source,
 	return 0;
 
   int result = 0;
-  TStringList *files = new TStringList();
+  auto files = std::make_unique<TStringList>();
 
   try
 	 {
 	   if (FConfig.RegExDL)
-		 GetFTPFileListRegEx(files, mask);
+		 GetFTPFileListRegEx(files.get(), mask);
 	   else
-		 GetFTPFileList(files, mask);
+		 GetFTPFileList(files.get(), mask);
      }
    catch (Exception &e)
 	 {
@@ -844,81 +835,77 @@ int TExchangeConnect::LoadFilesFromServer(String source,
 	   result = 0;
 	 }
 
-  TStringList *ok_files = new TStringList(); //перелік успішно завантажених файлів
+  auto ok_files = std::make_unique<TStringList>(); //перелік успішно завантажених файлів
 
   String src_name, remote_file;
 
-  try
+  for (int i = 0; i < files->Count; i++)
 	 {
-	   for (int i = 0; i < files->Count; i++)
-		 {
-		   src_name = files->Strings[i];
+	   src_name = files->Strings[i];
 
-           if (destin == "")
-			  remote_file = src_name;
-			else
-			  remote_file = source + "/" + src_name;
+	   if (destin == "")
+		 remote_file = src_name;
+	   else
+		 remote_file = source + "/" + src_name;
 
-		   try
+	   try
+		  {
+			bool downloaded = false;
+
+			if (FileExists(destin + "\\" + src_name) && SupportsVerification)
 			  {
-				bool downloaded = false;
+				bool equal = VerifyFile(src_name, destin + "\\" + src_name);
 
-				if (FileExists(destin + "\\" + src_name) && SupportsVerification)
-				  {
-					bool equal = VerifyFile(src_name, destin + "\\" + src_name);
-
-					if (!equal)
-					  {
-						if (GetFTPFile(remote_file, destin + "\\" + src_name, i))
-                          downloaded = true;
-					  }
-				  }
-				else if (FConfig.AppendModeDL)
-				  {
-					if (!FileExists(destin + "\\" + src_name))
-					  {
-						if (GetFTPFile(remote_file, destin + "\\" + src_name, i))
-						  downloaded = true;
-					  }
-				  }
-				else
+				if (!equal)
 				  {
 					if (GetFTPFile(remote_file, destin + "\\" + src_name, i))
 					  downloaded = true;
-                  }
-
-				if (downloaded)
-				  {
-					ok_files->Add(destin + "\\" + src_name);
-					AddSuccessFile(remote_file);
 				  }
+			  }
+			else if (FConfig.AppendModeDL)
+			  {
+				if (!FileExists(destin + "\\" + src_name))
+				  {
+					if (GetFTPFile(remote_file, destin + "\\" + src_name, i))
+					  downloaded = true;
+				  }
+			  }
+			else
+			  {
+				if (GetFTPFile(remote_file, destin + "\\" + src_name, i))
+				  downloaded = true;
+			  }
 
-				result = 1;
-              }
-		   catch (Exception &e)
-			 {
-			   WriteLog("Помилка завантаження: " +
-						FtpLoader->Host + ":/" + remote_file +
-						" до " + destin + "\\" + src_name +
-						" (" + e.ToString() + ")");
+			if (downloaded)
+			  {
+				ok_files->Add(destin + "\\" + src_name);
+				AddSuccessFile(remote_file);
+			  }
 
-               result = 0;
-			 }
-		 }
+			result = 1;
+		  }
+	   catch (Exception &e)
+		  {
+			WriteLog("Помилка завантаження: " +
+					 FtpLoader->Host + ":/" + remote_file +
+					 " до " + destin + "\\" + src_name +
+					 " (" + e.ToString() + ")");
 
-	   if (result)
-		 {
-		   if (ok_files->Count > 0)
-			 result = 1;
-		   else
-             result = 2;
-		 }
-
-	   if (FConfig.BackUpDl && (backup != ""))
-		 BackUpFiles(ok_files, backup);
+			result = 0;
+		  }
 	 }
-   __finally {delete files; delete ok_files;}
-   
+
+  if (result)
+	{
+	  if (ok_files->Count > 0)
+		result = 1;
+	  else
+		result = 2;
+	}
+
+  if (FConfig.BackUpDl && (backup != ""))
+	BackUpFiles(ok_files.get(), backup);
+
   return result;
 }
 //---------------------------------------------------------------------------
@@ -931,46 +918,38 @@ int TExchangeConnect::LoadFilesFromServerSubDirs(String source,
   if (!FtpLoader->Connected())
 	return 0;
 
-  TStringList *DirList = new TStringList();
+  auto DirList = std::make_unique<TStringList>();
   int result = 0;
 
-  if (GetFullDirList(DirList, "") < 0)
-	{
-	  delete DirList;
+  if (GetFullDirList(DirList.get(), "") < 0)
+	return 0;
 
-	  return 0;
-	}
+  result = LoadFilesFromServer(source, mask, destin, backup);
 
-  try
+  for (int i = 0; i < DirList->Count; i++)
 	 {
-	   result = LoadFilesFromServer(source, mask, destin, backup);
+	   FtpLoader->ChangeDir(DirList->Strings[i]);
 
-	   for (int i = 0; i < DirList->Count; i++)
-		  {
-			FtpLoader->ChangeDir(DirList->Strings[i]);
+	   if (FConfig.SubDirsCrt)
+		 {
+		   if (!DirectoryExists(destin + "\\" + DirList->Strings[i]))
+			 CreateDirectory(String(destin + "\\" + DirList->Strings[i]).c_str(), NULL);
 
-			if (FConfig.SubDirsCrt)
-			  {
-				if (!DirectoryExists(destin + "\\" + DirList->Strings[i]))
-				  CreateDirectory(String(destin + "\\" + DirList->Strings[i]).c_str(), NULL);
-
-				result += LoadFilesFromServer(source + "/" + DirList->Strings[i],
-											  mask,
-											  destin + "\\" + DirList->Strings[i],
-											  backup);
-			  }
-			else
-			  {
-				result += LoadFilesFromServer(source + "/" + DirList->Strings[i],
-											  mask,
-											  destin,
-											  backup);
-			  }
-
-            FtpLoader->ChangeDirUp();
+		   result += LoadFilesFromServer(source + "/" + DirList->Strings[i],
+										 mask,
+										 destin + "\\" + DirList->Strings[i],
+										 backup);
 		 }
+	   else
+		 {
+		   result += LoadFilesFromServer(source + "/" + DirList->Strings[i],
+										 mask,
+										 destin,
+										 backup);
+		 }
+
+	   FtpLoader->ChangeDirUp();
 	 }
-  __finally {delete DirList;}
 
   return result;
 }
@@ -1074,15 +1053,15 @@ int TExchangeConnect::SendFilesToServer(String source,
   if (!FtpLoader->Connected())
 	return 0;
 
-  TStringList *files = new TStringList();
-  TStringList *ok_files = new TStringList();
+  auto files = std::make_unique<TStringList>();
+  auto ok_files = std::make_unique<TStringList>();
 
   try
 	 {
 	   if (FConfig.RegExUL)
-		 GetFileListRegEx(files, source, mask, false, true);
+		 GetFileListRegEx(files.get(), source, mask, false, true);
 	   else
-		 GetFileList(files, source, mask, false, true);
+		 GetFileList(files.get(), source, mask, false, true);
      }
   catch (Exception &e)
 	 {
@@ -1154,10 +1133,7 @@ int TExchangeConnect::SendFilesToServer(String source,
 	}
 
   if (FConfig.BackUpUl && (backup != ""))
-	BackUpFiles(ok_files, backup);
-
-  delete files;
-  delete ok_files;
+	BackUpFiles(ok_files.get(), backup);
 
   return result;
 }
@@ -1171,47 +1147,43 @@ int TExchangeConnect::SendFilesToServerSubDirs(String source,
   if (!FtpLoader->Connected())
 	return 0;
 
-  TStringList *DirList = new TStringList();
+  auto DirList = std::make_unique<TStringList>();
   int result = 0;
   String remote_dir;
 
-  try
+  result = SendFilesToServer(source, mask, destin, backup);
+
+  GetDirList(DirList.get(), source, WITHOUT_FULL_PATH);
+
+  for (int i = 0; i < DirList->Count; i++)
 	 {
-	   result = SendFilesToServer(source, mask, destin, backup);
+	   if (FConfig.SubDirsCrt)
+		 {
+		   if (destin == "")
+			 remote_dir = DirList->Strings[i];
+		   else
+			 remote_dir = destin + "/" + DirList->Strings[i];
 
-	   GetDirList(DirList, source, WITHOUT_FULL_PATH);
+		   if (!IsFtpDirExist(destin, DirList->Strings[i]))
+			 FtpLoader->MakeDir(DirList->Strings[i]);
 
-	   for (int i = 0; i < DirList->Count; i++)
-		  {
-			if (FConfig.SubDirsCrt)
-			  {
-                if (destin == "")
-				  remote_dir = DirList->Strings[i];
-				else
-				  remote_dir = destin + "/" + DirList->Strings[i];
+		   FtpLoader->ChangeDir(DirList->Strings[i]);
 
-				if (!IsFtpDirExist(destin, DirList->Strings[i]))
-				  FtpLoader->MakeDir(DirList->Strings[i]);
+		   result += SendFilesToServer(source + "\\" + DirList->Strings[i],
+									   mask,
+									   remote_dir,
+									   backup);
 
-				FtpLoader->ChangeDir(DirList->Strings[i]);
-
-                result += SendFilesToServer(source + "\\" + DirList->Strings[i],
-											mask,
-											remote_dir,
-											backup);
-
-				FtpLoader->ChangeDirUp();
-			  }
-			else
-			  {
-				result += SendFilesToServer(source + "\\" + DirList->Strings[i],
-											mask,
-											destin,
-											backup);
-			  }
-		  }
+		   FtpLoader->ChangeDirUp();
+		 }
+	   else
+		 {
+		   result += SendFilesToServer(source + "\\" + DirList->Strings[i],
+									   mask,
+									   destin,
+									   backup);
+		 }
 	 }
-  __finally {delete DirList;}
 
   return result;
 }
@@ -1219,28 +1191,20 @@ int TExchangeConnect::SendFilesToServerSubDirs(String source,
 
 bool TExchangeConnect::IsFtpDirExist(String source, String dir_name)
 {
-  TStringList *DirList = new TStringList();
+  auto DirList = std::make_unique<TStringList>();
   bool result = false;
 
-  if (GetFullDirList(DirList, "") < 0)
-	{
-	  delete DirList;
+  if (GetFullDirList(DirList.get(), "") < 0)
+	return false;
 
-	  return false;
-	}
-
-  try
+  for (int i = 0; i < DirList->Count; i++)
 	 {
-	   for (int i = 0; i < DirList->Count; i++)
-		  {
-			if (DirList->Strings[i] == dir_name)
-			  {
-				result = true;
-				break;
-			  }
-		  }
+	   if (DirList->Strings[i] == dir_name)
+		 {
+		   result = true;
+		   break;
+		 }
 	 }
-  __finally {delete DirList;}
 
   return result;
 }
@@ -1375,25 +1339,24 @@ int TExchangeConnect::GetFTPFileCountWithSubDirs(String source, String mask)
   if (!FtpLoader->Connected())
 	return -1;
 
-  TStringList *DirList = new TStringList();
+  auto DirList = std::make_unique<TStringList>();
   String src_name;
   int FileCount = 0;
 
+
   try
 	 {
-       try
-		  {
-			FtpLoader->List("", true);
-		  }
-	   catch (Exception &e)
-		  {
-			WriteLog("Помилка читання переліку директорій, " + source + "/" + mask + " :" + e.ToString());
+	   FtpLoader->List("", true);
+	 }
+  catch (Exception &e)
+	 {
+	   WriteLog("Помилка читання переліку директорій, " + source + "/" + mask + ": " + e.ToString());
 
-			delete DirList;
+	   return 0;
+	 }
 
-	   		return 0;
-		  }
-
+  try
+	 {
 	   for (int i = 0; i < FtpLoader->DirectoryListing->Count; i++)
 		  {
 			src_name = FtpLoader->DirectoryListing->Items[i]->FileName;
@@ -1417,7 +1380,12 @@ int TExchangeConnect::GetFTPFileCountWithSubDirs(String source, String mask)
 			FtpLoader->ChangeDirUp();
 		  }
 	 }
-  __finally {delete DirList;}
+  catch (Exception &e)
+	{
+	  WriteLog("GetFTPFileCountWithSubDirs: " + e.ToString());
+
+	  return 0;
+	}
 
   return FileCount;
 }
@@ -1428,25 +1396,23 @@ int TExchangeConnect::GetFTPFileCountWithSubDirsRegEx(String source, String reg_
   if (!FtpLoader->Connected())
 	return -1;
 
-  TStringList *DirList = new TStringList();
+  auto DirList = std::make_unique<TStringList>();
   String src_name;
   int FileCount = 0;
 
   try
 	 {
-	   try
-		  {
-			FtpLoader->List("", true);
-		  }
-	   catch (Exception &e)
-		  {
-			WriteLog("Помилка читання переліку директорій, " + source + "/*"+ " :" + e.ToString());
+	   FtpLoader->List("", true);
+	 }
+  catch (Exception &e)
+	 {
+	   WriteLog("Помилка читання переліку директорій, " + source + "/*"+ " :" + e.ToString());
 
-			delete DirList;
+	   return 0;
+	 }
 
-	   		return 0;
-		  }
-
+  try
+	 {
 	   for (int i = 0; i < FtpLoader->DirectoryListing->Count; i++)
 		  {
 			src_name = FtpLoader->DirectoryListing->Items[i]->FileName;
@@ -1470,7 +1436,12 @@ int TExchangeConnect::GetFTPFileCountWithSubDirsRegEx(String source, String reg_
 			FtpLoader->ChangeDirUp();
 		  }
 	 }
-  __finally {delete DirList;}
+  catch (Exception &e)
+	{
+	  WriteLog("GetFTPFileCountWithSubDirsRegEx: " + e.ToString());
+
+	  return 0;
+	}
 
   return FileCount;
 }
@@ -1610,8 +1581,8 @@ ExchageExitCode TExchangeConnect::DownLoad(String source,
 {
   int fcnt;
   ExchageExitCode result;
-  TStringList *d_mask_lst = new TStringList();
-  StrToList(d_mask_lst, mask, ";");
+  auto d_mask_lst = std::make_unique<TStringList>();
+  StrToList(d_mask_lst.get(), mask, ";");
 
   Status = "Завантаження...";
   WriteLog(Status);
@@ -1664,7 +1635,7 @@ ExchageExitCode TExchangeConnect::DownLoad(String source,
 				   WriteLog(Status);
 
 				   if ((result == EE_ALL_FILES) || (result == EE_SOME_FILES))
-					 result == EE_SOME_FILES;
+					 result = EE_SOME_FILES;
 				   else
 				   	 result = EE_NO_FILES;
 				 }
@@ -1692,8 +1663,6 @@ ExchageExitCode TExchangeConnect::DownLoad(String source,
 		 }
 	}
 
-  delete d_mask_lst;
-
   return result;
 }
 //-------------------------------------------------------------------------
@@ -1706,8 +1675,10 @@ ExchageExitCode TExchangeConnect::UpLoad(String source,
   Status = "Вивантаження...";
   WriteLog(Status);
 
-  TStringList *u_mask_lst = new TStringList();
-  StrToList(u_mask_lst, mask, ";");
+  auto u_mask_lst = std::make_unique<TStringList>();
+
+  StrToList(u_mask_lst.get(), mask, ";");
+
   int cnt;
   ExchageExitCode result = EE_NO_FILES;
 
@@ -1775,7 +1746,7 @@ ExchageExitCode TExchangeConnect::UpLoad(String source,
 				   WriteLog(Status);
 
 				   if ((result == EE_ALL_FILES) || (result == EE_SOME_FILES))
-					 result == EE_SOME_FILES;
+					 result = EE_SOME_FILES;
 				   else
 					 result = EE_NO_FILES;
 				 }
@@ -1802,8 +1773,6 @@ ExchageExitCode TExchangeConnect::UpLoad(String source,
 			 result = EE_NO_FILES;
 		 }
 	 }
-
-  delete u_mask_lst;
 
   return result;
 }
@@ -1871,14 +1840,14 @@ void TExchangeConnect::ParsingParamsForVars()
 
 void TExchangeConnect::DeleteOldBackUpDirs()
 {
-  TStringList *dir_list = new TStringList(),
-			  *del_list = new TStringList();
+  auto dir_list = std::make_unique<TStringList>();
+  auto del_list = std::make_unique<TStringList>();
 
   try
 	 {
 	   if (DirectoryExists(FConfig.BackUpDirDl))
 		 {
-		   GetDirList(dir_list, FConfig.BackUpDirDl, WITHOUT_FULL_PATH);
+		   GetDirList(dir_list.get(), FConfig.BackUpDirDl, WITHOUT_FULL_PATH);
 
 		   for (int i = 0; i < dir_list->Count; i++)
 			  {
@@ -1901,7 +1870,7 @@ void TExchangeConnect::DeleteOldBackUpDirs()
 
 	   if (DirectoryExists(FConfig.BackUpDirUl))
 		 {
-		   GetDirList(dir_list, FConfig.BackUpDirUl, WITHOUT_FULL_PATH);
+		   GetDirList(dir_list.get(), FConfig.BackUpDirUl, WITHOUT_FULL_PATH);
 
 		   TDate dir_date;
 
@@ -1911,7 +1880,7 @@ void TExchangeConnect::DeleteOldBackUpDirs()
 				   {
 					 dir_date = TDate(dir_list->Strings[i]);
 
-                     if (dir_date < (Date().CurrentDate() - FConfig.BackUpKeepDays))
+					 if (dir_date < (Date().CurrentDate() - FConfig.BackUpKeepDays))
 					   del_list->Add(dir_list->Strings[i]);
 				   }
 				catch (Exception &e)
@@ -1927,7 +1896,10 @@ void TExchangeConnect::DeleteOldBackUpDirs()
 			RemoveDir(FConfig.BackUpDirUl + "\\" + del_list->Strings[i]);
 		  }
 	 }
-  __finally {delete dir_list; delete del_list;}
+  catch (Exception &e)
+	 {
+	   WriteLog("Видалення каталогів старих бекапів: " + e.ToString());
+	 }
 }
 //---------------------------------------------------------------------------
 
@@ -1961,20 +1933,10 @@ bool TExchangeConnect::VerifyFile(const String &remote_file, const String &local
 	 {
 	   long remote_crc = FtpLoader->CRC(remote_file);
 	   long local_crc = 0;
-	   TIdHashCRC32 *local_hash;
-	   TFileStream *local_stream;
+	   auto local_hash = std::make_unique<TIdHashCRC32>();
+	   auto local_stream = std::make_unique<TFileStream>(local_file, fmOpenRead);
 
-	   try
-		  {
-            local_hash = new TIdHashCRC32();
-			local_stream = new TFileStream(local_file, fmOpenRead);
-			local_crc = local_hash->HashValue(local_stream);
-		  }
-	   __finally
-		  {
-			if (local_hash) delete local_hash;
-			if (local_stream) delete local_stream;
-		  }
+	   local_crc = local_hash->HashValue(local_stream.get());
 
 	   if (remote_crc == local_crc)
 		 res = true;
