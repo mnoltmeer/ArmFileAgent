@@ -3,10 +3,11 @@ Copyright 2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 */
 //---------------------------------------------------------------------------
 
+#include <memory>
 #include <System.hpp>
 #pragma hdrstop
 
-#include "..\..\work-functions\MyFunc.h"
+#include "..\..\work-functions\TCPRequester.h"
 #include "Main.h"
 #include "StatusChecker.h"
 #pragma package(smart_init)
@@ -45,13 +46,12 @@ void __fastcall TStatusCheckThread::Check()
 {
   try
 	 {
+	   auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
 	   std::vector<int> id_list;
 
 	   id_list.clear();
 
 	   Collection->SelectRecipients(&id_list);
-
-	   std::unique_ptr<TStringStream> ms(new TStringStream("", TEncoding::UTF8, true));
 
 	   for (int i = 0; i < id_list.size(); i++)
 		  {
@@ -62,7 +62,9 @@ void __fastcall TStatusCheckThread::Check()
 				ms->Clear();
 				ms->WriteString("#status");
 
-				if (!AskFromHost(itm->Host.c_str(), itm->Port.ToInt(), ms.get()))
+				auto sender = std::make_unique<TTCPRequester>(itm->Host, itm->Port.ToInt());
+
+				if (!sender->AskData(ms.get()))
 				  itm->Node->StateIndex = 4;
 				else if (ms->ReadString(ms->Size) == "#ok")
 				  itm->Node->StateIndex = 3;

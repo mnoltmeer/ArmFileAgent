@@ -72,6 +72,9 @@ __published:	// IDE-managed Components
 	TBitBtn *RefreshLog;
 	TLabel *Label2;
 	TListView *ConfigList;
+	TPanel *AddrBookControlPanel;
+	TBitBtn *ExpandAll;
+	TBitBtn *CollapseAll;
 	void __fastcall FormClose(TObject *Sender, TCloseAction &Action);
 	void __fastcall AddrListClick(TObject *Sender);
 	void __fastcall EditBookClick(TObject *Sender);
@@ -94,14 +97,12 @@ __published:	// IDE-managed Components
 	void __fastcall TrayIconDblClick(TObject *Sender);
 	void __fastcall FormCreate(TObject *Sender);
 	void __fastcall RefreshLogClick(TObject *Sender);
+	void __fastcall ExpandAllClick(TObject *Sender);
+	void __fastcall CollapseAllClick(TObject *Sender);
 
 private:	// User declarations
-	int __fastcall ReadTmpCfg(String cfg);
 	int __fastcall ReadServerList();
 	int __fastcall ReadRemoteVersion();
-	int __fastcall SendToClient(const wchar_t *host, int port, TStringStream *rw_bufer);
-    int __fastcall SendToClient(const wchar_t *host, int port, const String &data);
-	TIdTCPClient* __fastcall CreateSender(const wchar_t *host, int port);
 	void __fastcall StartServer();
 	void __fastcall StopServer();
 	String __fastcall CreateClientFileList(const String &index, const String &station);
@@ -118,7 +119,6 @@ public:		// User declarations
     void __fastcall ShowClientInfo(const String &station, const String &index,
 								   const String &host, const String &port);
 	void __fastcall ClearClientInfo();
-    int __fastcall AskToClient(const wchar_t *host, int port, TStringStream *rw_bufer);
 };
 //---------------------------------------------------------------------------
 extern PACKAGE TServerForm *ServerForm;

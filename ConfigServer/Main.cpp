@@ -265,107 +265,6 @@ void __fastcall TServerForm::AddrListClick(TObject *Sender)
 }
 //---------------------------------------------------------------------------
 
-int __fastcall TServerForm::AskToClient(const wchar_t *host, int port, TStringStream *rw_bufer)
-{
-  std::unique_ptr<TIdTCPClient> sender(CreateSender(host, port));
-
-  try
-	 {
-	   sender->Connect();
-	   rw_bufer->Position = 0;
-	   sender->IOHandler->Write(rw_bufer, rw_bufer->Size, true);
-	 }
-  catch (Exception &e)
-	 {
-	   WriteLog(String(host) + ":" + IntToStr(port) + " " +
-				"помилка відправки даних: " + e.ToString());
-	   return -1;
-	 }
-
-  try
-	 {
-	   rw_bufer->Clear();
-	   sender->IOHandler->ReadStream(rw_bufer);
-	 }
-  catch (Exception &e)
-	 {
-	   WriteLog(String(host) + ":" +
-				IntToStr(port) + " " +
-				"помилка отримання даних: " +
-				e.ToString());
-	   return -1;
-	 }
-
-  rw_bufer->Position = 0;
-
-  return 0;
-}
-//---------------------------------------------------------------------------
-
-int __fastcall TServerForm::SendToClient(const wchar_t *host, int port, TStringStream *rw_bufer)
-{
-  std::unique_ptr<TIdTCPClient> sender(CreateSender(host, port));
-  int res = 0;
-
-  try
-	 {
-	   sender->Connect();
-	   sender->IOHandler->Write(rw_bufer, rw_bufer->Size, true);
-	 }
-  catch (Exception &e)
-	 {
-	   WriteLog(String(host) + ":" + IntToStr(port) + " помилка відправки даних: " + e.ToString());
-	 }
-
-  rw_bufer->Clear();
-
-  return res;
-}
-//---------------------------------------------------------------------------
-
-int __fastcall TServerForm::SendToClient(const wchar_t *host, int port, const String &data)
-{
-  int res = 0;
-  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
-  auto sender = std::make_unique<TIdTCPClient>(CreateSender(host, port));
-
-  try
-	 {
-	   sender->Connect();
-	   ms->Position = 0;
-	   sender->IOHandler->Write(ms.get(), ms->Size, true);
-	 }
-  catch (Exception &e)
-	 {
-	   WriteLog(String(host) + ":" + IntToStr(port) + " помилка відправки даних: " + e.ToString());
-	   res = -1;
-	 }
-
-  return res;
-}
-//---------------------------------------------------------------------------
-
-TIdTCPClient* __fastcall TServerForm::CreateSender(const wchar_t *host, int port)
-{
-  TIdTCPClient *sender = new TIdTCPClient(ServerForm);
-
-  try
-	 {
-	   sender->Host = host;
-	   sender->Port = port;
-	   sender->IPVersion = Id_IPv4;
-	   sender->ConnectTimeout = 500;
-	   sender->ReadTimeout = 5000;
-	 }
-  catch (Exception &e)
-	 {
-	   WriteLog("CreateSender: " + e.ToString());
-	 }
-
-  return sender;
-}
-//---------------------------------------------------------------------------
-
 void __fastcall TServerForm::AddToBookClick(TObject *Sender)
 {
   try
@@ -890,6 +789,10 @@ void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 	 {
 	   WriteLog("Listener: " + e.ToString());
 	 }
+  catch (std::exception &e)
+	 {
+       WriteLog("Listener: " + String(e.what()));
+     }
 }
 //---------------------------------------------------------------------------
 
@@ -1204,6 +1107,38 @@ void __fastcall TServerForm::RefreshLogClick(TObject *Sender)
 {
   Log->Lines->LoadFromFile(LogDir + "\\" + LogFilter->Items->Strings[LogFilter->ItemIndex],
 						   TEncoding::UTF8);
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TServerForm::ExpandAllClick(TObject *Sender)
+{
+  try
+	 {
+	   for (int i = 0; i < AddrBook->Count; i++)
+		  {
+			AddrBook->Items[i]->Node->Expand(true);
+		  }
+	 }
+  catch (Exception &e)
+	 {
+	   WriteLog("ExpandAllClick: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TServerForm::CollapseAllClick(TObject *Sender)
+{
+  try
+	 {
+	   for (int i = 0; i < AddrBook->Count; i++)
+		  {
+			AddrBook->Items[i]->Node->Collapse(true);
+		  }
+	 }
+  catch (Exception &e)
+	 {
+	   WriteLog("CollapseAllClick: " + e.ToString());
+	 }
 }
 //---------------------------------------------------------------------------
 
