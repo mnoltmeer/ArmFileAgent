@@ -91,6 +91,9 @@ __published:	// IDE-managed Components
 	TBitBtn *LoadAddrBookFromServer;
 	TButton *SendCheckUpds;
 	TImageList *MenuImages;
+	TPanel *AddrBookControlPanel;
+	TBitBtn *ExpandAll;
+	TBitBtn *CollapseAll;
 	void __fastcall ConnectClick(TObject *Sender);
 	void __fastcall PortClick(TObject *Sender);
 	void __fastcall ReadCfgClick(TObject *Sender);
@@ -126,6 +129,8 @@ __published:	// IDE-managed Components
 	void __fastcall LoadAddrBookFromServerClick(TObject *Sender);
 	void __fastcall SendScriptClick(TObject *Sender);
 	void __fastcall SendCheckUpdsClick(TObject *Sender);
+	void __fastcall ExpandAllClick(TObject *Sender);
+	void __fastcall CollapseAllClick(TObject *Sender);
 
 private:	// User declarations
 	int __fastcall ReadTmpCfg(String cfg);

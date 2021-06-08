@@ -67,6 +67,13 @@ void __fastcall TAURAForm::FormShow(TObject *Sender)
 	   AddrBookChecker->Collection = AddrBook;
 	   AddrBookChecker->CheckInterval = 1000;
 	   AddrBookChecker->Resume();
+
+	   AddrList->AlphaSort();
+
+	   RecipientItem *grp = AddrBook->FindGroup("public");
+
+	   if (grp)
+		 AddrBook->Remove(grp->Node);
 	 }
   catch (Exception &e)
 	 {
@@ -575,6 +582,7 @@ void __fastcall TAURAForm::AddGroupBookClick(TObject *Sender)
 		 {
 		   AddrBook->Add(0, AddrList->Items->Add(AddrList->Selected, name), name);
 		   AddrBook->CreateSortedTree(AddrList);
+           AddrList->AlphaSort();
 		   AddrBookChecker->CollectionChanged = true;
 		 }
 	 }
@@ -601,6 +609,7 @@ void __fastcall TAURAForm::DeleteFromBookClick(TObject *Sender)
 			   AddrBook->DeleteRecipientsInGroup(AddrBook->FindGroup(AddrList->Selected)->ID);
 			   AddrBook->Remove(AddrList->Selected);
 			   AddrBook->CreateSortedTree(AddrList);
+			   AddrList->AlphaSort();
 			   AddrBookChecker->CollectionChanged = true;
 			 }
 		 }
@@ -612,7 +621,8 @@ void __fastcall TAURAForm::DeleteFromBookClick(TObject *Sender)
 		   int grp_id = itm->ParentNodeID;
 
 		   AddrBook->Remove(itm->ID);
-           AddrBook->CreateSortedTree(AddrList);
+		   AddrBook->CreateSortedTree(AddrList);
+           AddrList->AlphaSort();
 		   AddrBookChecker->CollectionChanged = true;
 
 		   AddrBook->FindGroup(grp_id)->Node->Expand(true);
@@ -637,6 +647,7 @@ void __fastcall TAURAForm::EditBookClick(TObject *Sender)
 		{
           itm->Name = name;
 		  AddrBook->CreateSortedTree(AddrList);
+          AddrList->AlphaSort();
 		  AddrBookChecker->CollectionChanged = true;
 		}
 	}
@@ -784,6 +795,7 @@ void __fastcall TAURAForm::EditApplyClick(TObject *Sender)
 
 	   AddrBook->Remove(EditName->Tag); //видаляємо запис
 	   AddrBook->CreateSortedTree(AddrList);
+	   AddrList->AlphaSort();
 
 //і створюємо новий з тими значеннями, що ми отримали від старого запису
 	   RecipientItem *grp = AddrBook->FindGroup(name);
@@ -792,6 +804,7 @@ void __fastcall TAURAForm::EditApplyClick(TObject *Sender)
 		 {
 		   AddrBook->Add(grp->ID, grp->Node, EditName->Text, EditHost->Text, EditPort->Text);
 		   AddrBook->CreateSortedTree(AddrList);
+           AddrList->AlphaSort();
 		   AddrBookChecker->CollectionChanged = true;
 		 }
 
@@ -943,6 +956,7 @@ void __fastcall TAURAForm::NewApplyClick(TObject *Sender)
 					NewPort->Text);
 
 	  AddrBook->CreateSortedTree(AddrList);
+      AddrList->AlphaSort();
 	  AddrBook->FindGroup(name)->Node->Expand(true);
       AddrBookChecker->CollectionChanged = true;
 	}
@@ -1003,7 +1017,8 @@ void __fastcall TAURAForm::ImportInAddrBookClick(TObject *Sender)
 
 			   AddrBook->Save();
 
-               AddrBook->CreateSortedTree(AddrList);
+			   AddrBook->CreateSortedTree(AddrList);
+			   AddrList->AlphaSort();
 			   grp = AddrBook->FindGroup("Несортоване");
 			   grp->Node->Expand(true);
 			 }
@@ -1013,6 +1028,7 @@ void __fastcall TAURAForm::ImportInAddrBookClick(TObject *Sender)
 
 			   AddrBook->ImportData(ImportBook.get());
 			   AddrBook->CreateSortedTree(AddrList);
+               AddrList->AlphaSort();
 			   AddrBook->Save();
 			   AddActionLog("Імпорт книги завершено");
 			 }
@@ -1106,6 +1122,12 @@ void __fastcall TAURAForm::LoadAddrBookFromServerClick(TObject *Sender)
 		   AddrBook->LoadFromFile(DataDir + "\\address.grp");
 		   AddrBook->CreateSortedTree(AddrList);
 		   AddrBookChecker->Resume();
+		   AddrList->AlphaSort();
+
+           RecipientItem *grp = AddrBook->FindGroup("public");
+
+		   if (grp)
+		 	 AddrBook->Remove(grp->Node);
 		 }
 	   else
 		 AddActionLog("Немає відповіді");
@@ -1204,7 +1226,7 @@ int __fastcall TAURAForm::GetConnectionID(const String &str_with_id)
 	   if (operstr == "")
 		 operstr = "0";
 
-       res = operstr.ToInt();
+	   res = operstr.ToInt();
 	 }
   catch (Exception &e)
 	 {
@@ -1314,4 +1336,35 @@ void __fastcall TAURAForm::CfgListMouseUp(TObject *Sender, TMouseButton Button, 
 }
 //---------------------------------------------------------------------------
 
+void __fastcall TAURAForm::ExpandAllClick(TObject *Sender)
+{
+  try
+	 {
+	   for (int i = 0; i < AddrBook->Count; i++)
+		  {
+			AddrBook->Items[i]->Node->Expand(true);
+		  }
+	 }
+  catch (Exception &e)
+	 {
+	   AddActionLog("ExpandAllClick: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
+void __fastcall TAURAForm::CollapseAllClick(TObject *Sender)
+{
+  try
+	 {
+	   for (int i = 0; i < AddrBook->Count; i++)
+		  {
+			AddrBook->Items[i]->Node->Collapse(true);
+		  }
+	 }
+  catch (Exception &e)
+	 {
+	   AddActionLog("CollapseAllClick: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
 
