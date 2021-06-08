@@ -138,18 +138,13 @@ private:	// User declarations
 	int __fastcall GetConnectionID(const String &str_with_id);
     void __fastcall WriteSettings();
 	void __fastcall ReadSettings();
-    TIdTCPClient* __fastcall CreateSender(const wchar_t *host, int port);
-	void __fastcall FreeSender(TIdTCPClient *sender);
-    void __fastcall SenderConnected(TObject *Sender);
-	void __fastcall SenderDisconnected(TObject *Sender);
     void __fastcall ImportHostStatus(const String &file);
 
 public:		// User declarations
 	__fastcall TAURAForm(TComponent* Owner);
 
 	void __fastcall AddActionLog(String status);
-    int __fastcall SendToServer(const wchar_t *host, int port, TStringStream *rw_bufer);
-
+    
 	void __fastcall EditFormShow(TObject *Sender);
 	void __fastcall EditApplyClick(TObject *Sender);
 	void __fastcall EditCancelClick(TObject *Sender);

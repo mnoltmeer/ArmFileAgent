@@ -1364,23 +1364,25 @@ object AURAForm: TAURAForm
         BevelEdges = []
         BevelOuter = bvNone
         TabOrder = 2
+        ExplicitLeft = -6
+        ExplicitTop = 426
         object Label5: TLabel
           Left = 6
-          Top = 48
+          Top = 61
           Width = 109
           Height = 13
           Caption = #1050#1077#1088#1091#1074#1072#1085#1085#1103' '#1082#1086#1085#1092#1110#1075#1072#1084#1080
         end
         object Label8: TLabel
           Left = 6
-          Top = 100
+          Top = 106
           Width = 119
           Height = 13
           Caption = #1050#1077#1088#1091#1074#1072#1085#1085#1103' '#1079#39#1108#1076#1085#1072#1085#1085#1103#1084#1080
         end
         object SaveCfgList: TButton
           Left = 6
-          Top = 6
+          Top = 8
           Width = 92
           Height = 25
           Hint = #1047#1073#1077#1088#1077#1075#1090#1080' '#1074#1084#1110#1089#1090' '#1074#1110#1082#1085#1072' '#1082#1086#1085#1092#1110#1075#1091
@@ -1392,7 +1394,7 @@ object AURAForm: TAURAForm
         end
         object GetStatus: TButton
           Left = 203
-          Top = 6
+          Top = 8
           Width = 81
           Height = 25
           Caption = #1057#1090#1072#1090#1091#1089
@@ -1401,7 +1403,7 @@ object AURAForm: TAURAForm
         end
         object GetThreadList: TButton
           Left = 293
-          Top = 6
+          Top = 8
           Width = 81
           Height = 25
           Caption = #1055#1086#1090#1086#1082#1080
@@ -1410,7 +1412,7 @@ object AURAForm: TAURAForm
         end
         object GetLog: TButton
           Left = 380
-          Top = 6
+          Top = 8
           Width = 87
           Height = 25
           Caption = #1054#1090#1088#1080#1084#1072#1090#1080' '#1083#1086#1075
@@ -1419,7 +1421,7 @@ object AURAForm: TAURAForm
         end
         object CfgKind: TComboBox
           Left = 6
-          Top = 65
+          Top = 78
           Width = 229
           Height = 21
           TabOrder = 4
@@ -1428,14 +1430,14 @@ object AURAForm: TAURAForm
         end
         object ServList: TComboBox
           Left = 6
-          Top = 119
+          Top = 123
           Width = 226
           Height = 21
           TabOrder = 5
         end
         object ReadCfg: TButton
           Left = 257
-          Top = 64
+          Top = 77
           Width = 105
           Height = 25
           Caption = #1054#1090#1088#1080#1084#1072#1090#1080' '#1082#1086#1085#1092#1110#1075
@@ -1444,7 +1446,7 @@ object AURAForm: TAURAForm
         end
         object CmdRun: TButton
           Left = 257
-          Top = 117
+          Top = 119
           Width = 105
           Height = 25
           Caption = #1047#1072#1087#1091#1089#1090#1080#1090#1080' '#1086#1073#1084#1110#1085
@@ -1453,7 +1455,7 @@ object AURAForm: TAURAForm
         end
         object CmdStop: TButton
           Left = 380
-          Top = 117
+          Top = 119
           Width = 99
           Height = 25
           Caption = #1047#1091#1087#1080#1085#1080#1090#1080' '#1086#1073#1084#1110#1085

@@ -11,6 +11,7 @@ Copyright 2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 #include "ScriptEditor.h"
 #include "Unit.h"
 #include "..\..\work-functions\MyFunc.h"
+#include "..\..\work-functions\TCPRequester.h"
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 #pragma resource "*.dfm"
@@ -79,12 +80,23 @@ void __fastcall TAURAForm::FormClose(TObject *Sender, TCloseAction &Action)
   if (EditForm)
 	delete EditForm;
 
-  AddrBookChecker->Terminate();
+  if (AddrBookChecker)
+	{
+	  if (AddrBookChecker->Started)
+		{
+		  AddrBookChecker->Terminate();
 
-  while (!AddrBookChecker->Finished)
-	Sleep(100);
+		  HANDLE hThread = reinterpret_cast<HANDLE>(AddrBookChecker->Handle);
 
-  delete AddrBookChecker;
+		  DWORD wait = WaitForSingleObject(hThread, 300);
+
+		  if (wait == WAIT_TIMEOUT)
+			TerminateThread(hThread, 0);
+		}
+
+	  delete AddrBookChecker;
+	}
+
   delete AddrBook;
 
   WriteSettings();
@@ -172,8 +184,9 @@ void __fastcall TAURAForm::ConnectClick(TObject *Sender)
 {
   Log->Clear();
   CfgList->Strings->Clear();
-  ReadServerList();
-  GetStatus->Click();
+
+  if (ReadServerList())
+    GetStatus->Click();
 }
 //---------------------------------------------------------------------------
 
@@ -198,17 +211,20 @@ void __fastcall TAURAForm::ReadCfgClick(TObject *Sender)
   String msg = "#send%cfg%" + IntToStr(id);
 
   auto ms = std::make_unique<TStringStream>(msg, TEncoding::UTF8, true);
+  auto sender = std::make_unique<TTCPRequester>(Host->Text, Port->Text.ToInt());
 
   try
 	 {
 	   ms->Position = 0;
 
-	   if (AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get()) == 0)
+	   if (sender->AskData(ms.get()))
 		 {
 		   String recvmsg = ms->ReadString(ms->Size);
 		   ReadTmpCfg(recvmsg);
 		   ReadCfg->Hint = id;
 		 }
+	   else
+		 AddActionLog("Немає відповіді");
 	 }
   catch (Exception &e)
 	 {
@@ -247,9 +263,10 @@ int __fastcall TAURAForm::ReadServerList()
 
   AddActionLog("Підключення до " + Host->Text + ":" + Port->Text);
 
-  int res = AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get());
+  auto sender = std::make_unique<TTCPRequester>(Host->Text, Port->Text.ToInt());
+  int res = sender->AskData(ms.get());
 
-  if (res == 0)
+  if (res)
 	{
 	  ms->Position = 0;
 	  String recvmsg = ms->ReadString(ms->Size);
@@ -283,6 +300,8 @@ int __fastcall TAURAForm::ReadServerList()
 
 	  ReadRemoteVersion();
 	}
+  else
+    AddActionLog("Немає відповіді");
 
   return res;
 }
@@ -294,9 +313,10 @@ int __fastcall TAURAForm::ReadRemoteVersion()
   auto ms = std::make_unique<TStringStream>(msg, TEncoding::UTF8, true);
   ms->Position = 0;
 
-  int res = AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get());
+  auto sender = std::make_unique<TTCPRequester>(Host->Text, Port->Text.ToInt());
+  int res = sender->AskData(ms.get());
 
-  if (res == 0)
+  if (res)
 	{
 	  ms->Position = 0;
 	  String recvmsg = ms->ReadString(ms->Size);
@@ -305,6 +325,8 @@ int __fastcall TAURAForm::ReadRemoteVersion()
 	  if (recvmsg != "no_data")
 		AddActionLog("Прочитано версію віддаленого модулю");
 	}
+  else
+    AddActionLog("Немає відповіді");
 
   return res;
 }
@@ -374,11 +396,15 @@ void __fastcall TAURAForm::GetStatusClick(TObject *Sender)
 
   ms->Position = 0;
 
-  if (AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get()) == 0)
+  auto sender = std::make_unique<TTCPRequester>(Host->Text, Port->Text.ToInt());
+
+  if (sender->AskData(ms.get()))
 	{
 	  String recvmsg = ms->ReadString(ms->Size);
 	  ReadTmpCfg(recvmsg);
 	}
+  else
+    AddActionLog("Немає відповіді");
 }
 //---------------------------------------------------------------------------
 
@@ -388,10 +414,9 @@ void __fastcall TAURAForm::CmdRunClick(TObject *Sender)
 
   int id = GetConnectionID(ServList->Items->Strings[ServList->ItemIndex]);
   String msg = "#run%" + IntToStr(id);
-  auto ms = std::make_unique<TStringStream>(msg, TEncoding::UTF8, true);
+  auto sender = std::make_unique<TTCPRequester>(Host->Text, Port->Text.ToInt());
 
-  ms->Position = 0;
-  SendToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get());
+  sender->SendString(msg);
 
   GetStatus->Click();
 }
@@ -403,10 +428,9 @@ void __fastcall TAURAForm::CmdStopClick(TObject *Sender)
 
   int id = GetConnectionID(ServList->Items->Strings[ServList->ItemIndex]);
   String msg = "#stop%" + IntToStr(id);
-  auto ms = std::make_unique<TStringStream>(msg, TEncoding::UTF8, true);
+  auto sender = std::make_unique<TTCPRequester>(Host->Text, Port->Text.ToInt());
 
-  ms->Position = 0;
-  SendToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get());
+  sender->SendString(msg);
 
   GetStatus->Click();
 }
@@ -418,14 +442,17 @@ void __fastcall TAURAForm::GetThreadListClick(TObject *Sender)
 
   String msg = "#send%thlist";
   auto ms = std::make_unique<TStringStream>(msg, TEncoding::UTF8, true);
+  auto sender = std::make_unique<TTCPRequester>(Host->Text, Port->Text.ToInt());
 
   ms->Position = 0;
 
-  if (AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get()) == 0)
+  if (sender->AskData(ms.get()))
 	{
 	  String recvmsg = ms->ReadString(ms->Size);
 	  ReadTmpCfg(recvmsg);
 	}
+  else
+    AddActionLog("Немає відповіді");
 }
 //---------------------------------------------------------------------------
 
@@ -467,105 +494,6 @@ void __fastcall TAURAForm::AddrListDblClick(TObject *Sender)
 }
 //---------------------------------------------------------------------------
 
-TIdTCPClient* __fastcall TAURAForm::CreateSender(const wchar_t *host, int port)
-{
-  TIdTCPClient *sender = new TIdTCPClient(NULL);
-
-  sender->Host = host;
-  sender->Port = port;
-  sender->IPVersion = Id_IPv4;
-  sender->OnConnected = SenderConnected;
-  sender->OnDisconnected = SenderDisconnected;
-  sender->ConnectTimeout = 500;
-  sender->ReadTimeout = 5000;
-
-  return sender;
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TAURAForm::FreeSender(TIdTCPClient *sender)
-{
-  if (sender)
-	{
-	  if (sender->Connected())
-		{
-		  sender->Disconnect();
-		  sender->Socket->Close();
-		}
-
-      delete sender;
-    }
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TAURAForm::SenderConnected(TObject *Sender)
-{
-  TIdTCPClient *sender = reinterpret_cast<TIdTCPClient*>(Sender);
-
-  AddActionLog("Початок сесії з " + sender->Host + ":" + IntToStr(sender->Port));
-}
-//---------------------------------------------------------------------------
-
-void __fastcall TAURAForm::SenderDisconnected(TObject *Sender)
-{
-  TIdTCPClient *sender = reinterpret_cast<TIdTCPClient*>(Sender);
-
-  AddActionLog("Кінець сесії з " + sender->Host + ":" + IntToStr(sender->Port));
-}
-//---------------------------------------------------------------------------
-
-int __fastcall TAURAForm::AskToServer(const wchar_t *host, int port, TStringStream *rw_bufer)
-{
-  std::unique_ptr<TIdTCPClient> AURAClient(CreateSender(host, port));
-  int res = 0;
-
-  try
-	 {
-	   AURAClient->Connect();
-	   AddActionLog("Відправка буферу даних");
-	   AURAClient->IOHandler->Write(rw_bufer, rw_bufer->Size, true);
-
-	   rw_bufer->Clear();
-	   rw_bufer->Position = 0;
-
-	   AddActionLog("Отримання буферу даних");
-	   AURAClient->IOHandler->ReadStream(rw_bufer);
-	 }
-  catch (Exception &e)
-	 {
-	   AddActionLog(String(host) + ":" + IntToStr(port) + " : " + e.ToString());
-	   res = -1;
-	 }
-
-  rw_bufer->Position = 0;
-
-  return res;
-}
-//---------------------------------------------------------------------------
-
-int __fastcall TAURAForm::SendToServer(const wchar_t *host, int port, TStringStream *rw_bufer)
-{
-  std::unique_ptr<TIdTCPClient> AURAClient(CreateSender(host, port));
-  int res = 0;
-
-  try
-	 {
-	   AURAClient->Connect();
-	   AddActionLog("Відправка буферу даних");
-	   AURAClient->IOHandler->Write(rw_bufer, rw_bufer->Size, true);
-	 }
-  catch (Exception &e)
-	 {
-	   AddActionLog(String(host) + ":" + IntToStr(port) + " : " + e.ToString());
-	   res = -1;
-	 }
-
-  rw_bufer->Clear();
-
-  return res;
-}
-//---------------------------------------------------------------------------
-
 void __fastcall TAURAForm::ShutdownClick(TObject *Sender)
 {
   if (MessageBox(Application->Handle,
@@ -575,10 +503,9 @@ void __fastcall TAURAForm::ShutdownClick(TObject *Sender)
 	{
 	  AddActionLog("Надсилання команди #shutdown");
 
-	  auto ms = std::make_unique<TStringStream>("#shutdown", TEncoding::UTF8, true);
+	  auto sender = std::make_unique<TTCPRequester>(Host->Text, Port->Text.ToInt());
 
-	  ms->Position = 0;
-	  SendToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get());
+	  sender->SendString("#shutdown");
 	}
 }
 //---------------------------------------------------------------------------
@@ -592,10 +519,9 @@ void __fastcall TAURAForm::RestartGuardClick(TObject *Sender)
 	{
 	  AddActionLog("Надсилання команди перезапуску Guardian");
 
-	  auto ms = std::make_unique<TStringStream>("#restart_guard", TEncoding::UTF8, true);
+	  auto sender = std::make_unique<TTCPRequester>(Host->Text, Port->Text.ToInt());
 
-	  ms->Position = 0;
-	  SendToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get());
+	  sender->SendString("#restart_guard");
 	}
 }
 //---------------------------------------------------------------------------
@@ -619,10 +545,9 @@ void __fastcall TAURAForm::SendCheckUpdsClick(TObject *Sender)
 {
   AddActionLog("Надсилання команди перевірки оновлень");
 
-  auto ms = std::make_unique<TStringStream>("#checkupdate", TEncoding::UTF8, true);
+  auto sender = std::make_unique<TTCPRequester>(Host->Text, Port->Text.ToInt());
 
-  ms->Position = 0;
-  SendToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get());
+  sender->SendString("#checkupdate");
 }
 //---------------------------------------------------------------------------
 
@@ -1164,14 +1089,15 @@ void __fastcall TAURAForm::LoadAddrBookFromServerClick(TObject *Sender)
 {
   try
 	 {
-       AddActionLog("Запит адресної книги з серверу");
+	   AddActionLog("Запит адресної книги з серверу");
 
 	   String msg = "#getaddrbook";
 	   auto ms = std::make_unique<TStringStream>(msg, TEncoding::UTF8, true);
-
+	   auto sender = std::make_unique<TTCPRequester>(CfgServerHost->Text,
+													 CfgServerPort->Text.ToInt());
 	   ms->Position = 0;
 
-	   if (AskToServer(CfgServerHost->Text.c_str(), CfgServerPort->Text.ToInt(), ms.get()) == 0)
+	   if (sender->AskData(ms.get()))
 		 {
 		   AddrBookChecker->Suspend();
 		   Sleep(100);
@@ -1181,16 +1107,22 @@ void __fastcall TAURAForm::LoadAddrBookFromServerClick(TObject *Sender)
 		   AddrBook->CreateSortedTree(AddrList);
 		   AddrBookChecker->Resume();
 		 }
+	   else
+		 AddActionLog("Немає відповіді");
+
+	   AddActionLog("Запит статусів з серверу");
 
 	   ms->Clear();
 	   ms->WriteString("#gethoststatus");
 	   ms->Position = 0;
 
-	   if (AskToServer(CfgServerHost->Text.c_str(), CfgServerPort->Text.ToInt(), ms.get()) == 0)
+	   if (sender->AskData(ms.get()))
 		 {
 		   ms->SaveToFile(DataDir + "\\hosts.sts");
 		   ImportHostStatus(DataDir + "\\hosts.sts");
 		 }
+	   else
+		 AddActionLog("Немає відповіді");
 	 }
   catch (Exception &e)
 	 {
@@ -1286,15 +1218,17 @@ int __fastcall TAURAForm::GetConnectionID(const String &str_with_id)
 
 void __fastcall TAURAForm::RequestLog(int conn_id)
 {
+  AddActionLog("Запит логу");
+
   try
 	 {
-       Log->Clear();
+	   Log->Clear();
 	   String msg = "#send%log";
 	   auto ms = std::make_unique<TStringStream>(msg, TEncoding::UTF8, true);
-
+	   auto sender = std::make_unique<TTCPRequester>(Host->Text, Port->Text.ToInt());
 	   ms->Position = 0;
 
-	   if (AskToServer(Host->Text.c_str(), Port->Text.ToInt(), ms.get()) == 0)
+	   if (sender->AskData(ms.get()))
 		 {
 		   String recvmsg = ms->ReadString(ms->Size);
 		   auto unfiltered = std::make_unique<TStringList>();
@@ -1320,6 +1254,8 @@ void __fastcall TAURAForm::RequestLog(int conn_id)
 
 		   SendMessage(Log->Handle, WM_VSCROLL, SB_BOTTOM, 0);
 		 }
+	   else
+         AddActionLog("Немає відповіді");
 	 }
   catch (Exception &e)
 	 {

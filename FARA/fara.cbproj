@@ -167,6 +167,10 @@
             <DependentOn>..\..\work-functions\RecpOrganizer.h</DependentOn>
             <BuildOrder>8</BuildOrder>
         </CppCompile>
+        <CppCompile Include="..\..\work-functions\TCPRequester.cpp">
+            <DependentOn>..\..\work-functions\TCPRequester.h</DependentOn>
+            <BuildOrder>9</BuildOrder>
+        </CppCompile>
         <FormResources Include="ScriptEditor.dfm"/>
         <FormResources Include="Unit.dfm"/>
         <BuildConfiguration Include="Release">

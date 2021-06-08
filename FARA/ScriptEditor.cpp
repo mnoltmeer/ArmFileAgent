@@ -8,6 +8,7 @@
 #include "ScriptEditor.h"
 #include "ELISourceHighlighter.h"
 #include "ELICodeInsight.h"
+#include "..\..\work-functions\TCPRequester.h"
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 #pragma resource "*.dfm"
@@ -398,12 +399,12 @@ void __fastcall TScriptForm::SendScriptClick(TObject *Sender)
 	   AURAForm->AddActionLog("Відправка скрипту до " +
 							  AURAForm->Host->Text + ":" +
 							  AURAForm->Port->Text);
-	   auto ms = std::make_unique<TStringStream>(Editor->Text, TEncoding::UTF8, true);
 
+	   auto ms = std::make_unique<TStringStream>(Editor->Text, TEncoding::UTF8, true);
+	   auto sender = std::make_unique<TTCPRequester>(AURAForm->Host->Text,
+													 AURAForm->Port->Text.ToInt());
 	   ms->Position = 0;
-	   AURAForm->SendToServer(AURAForm->Host->Text.c_str(),
-							  AURAForm->Port->Text.ToInt(),
-							  ms.get());
+	   sender->SendData(ms.get());
 
        Close();
 	 }
