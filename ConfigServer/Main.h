@@ -27,6 +27,7 @@ Copyright 2020-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 #include <System.ImageList.hpp>
 #include <Vcl.Imaging.pngimage.hpp>
 #include <Vcl.ImgList.hpp>
+#include <System.SysUtils.hpp>
 
 //---------------------------------------------------------------------------
 class TServerForm : public TForm
@@ -99,6 +100,7 @@ __published:	// IDE-managed Components
 	void __fastcall RefreshLogClick(TObject *Sender);
 	void __fastcall ExpandAllClick(TObject *Sender);
 	void __fastcall CollapseAllClick(TObject *Sender);
+
 
 private:	// User declarations
 	int __fastcall ReadServerList();

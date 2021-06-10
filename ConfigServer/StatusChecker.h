@@ -7,7 +7,9 @@ Copyright 2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 #define StatusCheckerH
 //---------------------------------------------------------------------------
 #include <System.Classes.hpp>
+#include <memory>
 
+#include "..\..\work-functions\TCPRequester.h"
 #include "RecpOrganizer.h"
 //---------------------------------------------------------------------------
 class TStatusCheckThread : public TThread
@@ -15,6 +17,7 @@ class TStatusCheckThread : public TThread
 private:
 	int FInterval;
 	TRecpientItemCollection *FCollection;
+	std::unique_ptr<TTCPRequester> FSender;
 
     void __fastcall Check();
 

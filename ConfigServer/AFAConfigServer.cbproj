@@ -42,7 +42,6 @@
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
         <DCC_CBuilderOutput>JPHNE</DCC_CBuilderOutput>
-        <DynamicRTL>true</DynamicRTL>
         <UsePackages>true</UsePackages>
         <IntermediateOutputDir>.\$(Platform)\$(Config)</IntermediateOutputDir>
         <FinalOutputDir>.\$(Platform)\$(Config)</FinalOutputDir>
@@ -84,24 +83,20 @@
         <DCC_Optimize>false</DCC_Optimize>
         <DCC_DebugInfoInExe>true</DCC_DebugInfoInExe>
         <Defines>_DEBUG;$(Defines)</Defines>
-        <BCC_InlineFunctionExpansion>false</BCC_InlineFunctionExpansion>
         <BCC_UseRegisterVariables>None</BCC_UseRegisterVariables>
         <DCC_Define>DEBUG</DCC_Define>
-        <BCC_DebugLineNumbers>true</BCC_DebugLineNumbers>
         <TASM_DisplaySourceLines>true</TASM_DisplaySourceLines>
         <BCC_StackFrames>true</BCC_StackFrames>
         <ILINK_FullDebugInfo>true</ILINK_FullDebugInfo>
         <TASM_Debugging>Full</TASM_Debugging>
-        <BCC_SourceDebuggingOn>true</BCC_SourceDebuggingOn>
         <BCC_EnableCPPExceptions>true</BCC_EnableCPPExceptions>
         <BCC_DisableFramePtrElimOpt>true</BCC_DisableFramePtrElimOpt>
         <BCC_DisableSpellChecking>true</BCC_DisableSpellChecking>
         <CLANG_UnwindTables>true</CLANG_UnwindTables>
         <ILINK_LibraryPath>$(BDSLIB)\$(PLATFORM)\debug;$(ILINK_LibraryPath)</ILINK_LibraryPath>
+        <BCC_SourceDebuggingOn>true</BCC_SourceDebuggingOn>
         <ILINK_TranslatedLibraryPath>$(BDSLIB)\$(PLATFORM)\debug\$(LANGDIR);$(ILINK_TranslatedLibraryPath)</ILINK_TranslatedLibraryPath>
-        <BCC_MonitorInlinePtrAccess>true</BCC_MonitorInlinePtrAccess>
-        <BCC_MonitorGlobalAndStackData>true</BCC_MonitorGlobalAndStackData>
-        <BCC_MonitorThis>true</BCC_MonitorThis>
+        <BCC_DebugLineNumbers>true</BCC_DebugLineNumbers>
         <BCC_UseClassicCompiler>false</BCC_UseClassicCompiler>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
@@ -111,7 +106,6 @@
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
-        <BCC_UseClassicCompiler>false</BCC_UseClassicCompiler>
         <BCC_MonitorInlinePtrAccess>true</BCC_MonitorInlinePtrAccess>
         <BCC_MonitorGlobalAndStackData>true</BCC_MonitorGlobalAndStackData>
         <BCC_MonitorThis>true</BCC_MonitorThis>

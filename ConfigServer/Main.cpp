@@ -701,6 +701,7 @@ void __fastcall TServerForm::LogFilterChange(TObject *Sender)
 void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 {
   String msg;
+
   auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
   auto list = std::make_unique<TStringList>();
 
@@ -792,7 +793,11 @@ void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
   catch (std::exception &e)
 	 {
        WriteLog("Listener: " + String(e.what()));
-     }
+	 }
+  catch (...)
+	 {
+      ShowMessage("Unexpected error");
+	 }
 }
 //---------------------------------------------------------------------------
 

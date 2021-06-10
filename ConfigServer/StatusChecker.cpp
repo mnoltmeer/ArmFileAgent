@@ -3,11 +3,9 @@ Copyright 2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 */
 //---------------------------------------------------------------------------
 
-#include <memory>
 #include <System.hpp>
 #pragma hdrstop
 
-#include "..\..\work-functions\TCPRequester.h"
 #include "Main.h"
 #include "StatusChecker.h"
 #pragma package(smart_init)
@@ -24,7 +22,14 @@ __fastcall TStatusCheckThread::TStatusCheckThread(bool CreateSuspended)
 
 void __fastcall TStatusCheckThread::Execute()
 {
+  FSender = std::make_unique<TTCPRequester>();
   int passed = CheckInterval;
+
+  if (!FSender)
+	{
+	  ServerForm->WriteLog("StatusCheckThread: Sender not created. Terminating thread");
+	  this->Terminate();
+    }
 
   while (!Terminated)
 	{
@@ -62,12 +67,19 @@ void __fastcall TStatusCheckThread::Check()
 				ms->Clear();
 				ms->WriteString("#status");
 
-				auto sender = std::make_unique<TTCPRequester>(itm->Host, itm->Port.ToInt());
+				try
+				   {
+					 FSender->Host = itm->Host;
+					 FSender->Port = itm->Port.ToInt();
 
-				if (!sender->AskData(ms.get()))
-				  itm->Node->StateIndex = 4;
-				else if (ms->ReadString(ms->Size) == "#ok")
-				  itm->Node->StateIndex = 3;
+					 if (!FSender->Connect())
+					   itm->Node->StateIndex = 4;
+					 else if (!FSender->AskData(ms.get()))
+					   itm->Node->StateIndex = 4;
+					 else if (ms->ReadString(ms->Size) == "#ok")
+					   itm->Node->StateIndex = 3;
+				   }
+				__finally{FSender->Disconnect();}
 			  }
 		  }
 	 }
@@ -75,5 +87,9 @@ void __fastcall TStatusCheckThread::Check()
 	 {
 	   ServerForm->WriteLog("StatusCheckThread::Check: " + e.ToString());
 	 }
+  catch (std::exception &e)
+	 {
+       ServerForm->WriteLog("Listener: " + String(e.what()));
+     }
 }
 //---------------------------------------------------------------------------

@@ -483,7 +483,6 @@ object ServerForm: TServerForm
         StateImages = MenuImages
         TabOrder = 0
         OnClick = AddrListClick
-        ExplicitHeight = 515
       end
       object AdrBookBtPanel: TPanel
         Left = 0
@@ -1104,8 +1103,6 @@ object ServerForm: TServerForm
         Align = alBottom
         BevelOuter = bvNone
         TabOrder = 2
-        ExplicitTop = 481
-        ExplicitWidth = 210
         object ExpandAll: TBitBtn
           Left = 0
           Top = 0
