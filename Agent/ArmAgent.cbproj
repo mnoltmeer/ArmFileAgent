@@ -175,6 +175,10 @@
             <DependentOn>..\..\work-functions\MyFunc.h</DependentOn>
             <BuildOrder>12</BuildOrder>
         </CppCompile>
+        <CppCompile Include="..\..\work-functions\TCPRequester.cpp">
+            <DependentOn>..\..\work-functions\TCPRequester.h</DependentOn>
+            <BuildOrder>16</BuildOrder>
+        </CppCompile>
         <CppCompile Include="..\..\work-functions\ThreadSafeLog.cpp">
             <DependentOn>..\..\work-functions\ThreadSafeLog.h</DependentOn>
             <BuildOrder>13</BuildOrder>

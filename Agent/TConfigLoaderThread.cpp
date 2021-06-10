@@ -8,6 +8,7 @@ Copyright 2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 
 #include "..\..\work-functions\MyFunc.h"
 #include "..\..\work-functions\ThreadSafeLog.h"
+#include "..\..\work-functions\TCPRequester.h"
 #include "TConfigLoaderThread.h"
 #include "Main.h"
 #pragma package(smart_init)
@@ -32,11 +33,12 @@ int __fastcall TConfigLoaderThread::GetConfigurationFromServer()
   try
 	 {
 	   auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+	   auto sender = std::make_unique<TTCPRequester>(ConfigServerHost, ConfigServerPort);
 
 	   ms->WriteString("#auth%" + StationID + "%" + IndexVZ + "%" + IntToStr(RemAdmPort));
 	   ms->Position = 0;
 
-	   if (AskFromHost(ConfigServerHost.c_str(), ConfigServerPort, ms.get()))
+	   if (sender->AskData(ms.get()))
 		 {
 		   ms->Position = 0;
 
@@ -195,27 +197,28 @@ void __fastcall TConfigLoaderThread::LoadFileFromConfigurationServer(ReceivedFil
   try
 	{
 	  auto ms = std::make_unique<TStringStream>("#request%" + file->Name, TEncoding::UTF8, true);
+	  auto sender = std::make_unique<TTCPRequester>(ConfigServerHost, ConfigServerPort);
 
-	   if (AskFromHost(ConfigServerHost.c_str(), ConfigServerPort, ms.get()))
-		 {
-		   String ext = UpperCase(GetFileExtensionFromFileName(local_file));
+	  if (sender->AskData(ms.get()))
+		{
+		  String ext = UpperCase(GetFileExtensionFromFileName(local_file));
 
-		   if (UpperCase(local_file) == "ELI.DLL")
-			 MainForm->ReleaseELI();
-		   else if ((ext == "EXE") && (UpperCase(local_file) != UpperCase(AppName)))
-		     StopRunningModule(local_file);
+		  if (UpperCase(local_file) == "ELI.DLL")
+			MainForm->ReleaseELI();
+		  else if ((ext == "EXE") && (UpperCase(local_file) != UpperCase(AppName)))
+			StopRunningModule(local_file);
 
-		   ms->Position = 0;
-		   ms->SaveToFile(DataPath + "\\" + local_file);
+		  ms->Position = 0;
+		  ms->SaveToFile(DataPath + "\\" + local_file);
 
 //змінюємо дату та час файла на ті, що були у оригінала на сервері
-		   if (SetFileDateTime(DataPath + "\\" + local_file, file->Changed) <= 0)
-			 Log->Add("Не вдалось змінити дату/час файлу: " + DataPath + "\\" + local_file);
+		  if (SetFileDateTime(DataPath + "\\" + local_file, file->Changed) <= 0)
+			Log->Add("Не вдалось змінити дату/час файлу: " + DataPath + "\\" + local_file);
 
-		   Log->Add("З серверу конфігурацій завантажено файл: " + local_file);
+		  Log->Add("З серверу конфігурацій завантажено файл: " + local_file);
 
-		   ProcessLoadedFile(local_file);
-		 }
+		  ProcessLoadedFile(local_file);
+		}
 	}
   catch (Exception &e)
 	{
