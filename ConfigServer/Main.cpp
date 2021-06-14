@@ -6,8 +6,8 @@ Copyright 2020-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 #include <vcl.h>
 #pragma hdrstop
 
-#include "MyFunc.h"
-#include "RecpOrganizer.h"
+#include "..\..\work-functions\MyFunc.h"
+#include "..\..\work-functions\RecpOrganizer.h"
 #include "RecpThread.h"
 #include "ClientConfigLinks.h"
 #include "StatusChecker.h"

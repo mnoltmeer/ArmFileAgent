@@ -3,7 +3,7 @@
 #include <vcl.h>
 #pragma hdrstop
 
-#include "RecpOrganizer.h"
+#include "..\..\work-functions\RecpOrganizer.h"
 #include "RecpThread.h"
 #include "AddGroup.h"
 #include "Main.h"
