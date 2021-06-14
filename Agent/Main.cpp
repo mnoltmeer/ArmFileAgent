@@ -385,7 +385,8 @@ void __fastcall TMainForm::Unregistration()
 	 {
 	   Caption = "ArmAgent -unreg";
 
-	   auto reg = std::make_unique<TRegistry>(KEY_WRITE);
+	   std::unique_ptr<TRegistry> reg(new TRegistry(KEY_WRITE));
+	   //auto reg = std::make_unique<>();
 
 	   reg->RootKey = HKEY_CURRENT_USER;
 
@@ -651,7 +652,8 @@ void __fastcall TMainForm::WriteSettings()
 {
   try
 	 {
-	   auto reg = std::make_unique<TRegistry>(KEY_WRITE);
+	   std::unique_ptr<TRegistry> reg(new TRegistry(KEY_WRITE));
+	   //auto reg = std::make_unique<TRegistry>(KEY_WRITE);
 
 	   reg->RootKey = HKEY_LOCAL_MACHINE;
 
@@ -689,7 +691,8 @@ void __fastcall TMainForm::WriteModulePath()
 {
   try
 	 {
-	   auto reg = std::make_unique<TRegistry>(KEY_WRITE);
+	   std::unique_ptr<TRegistry> reg(new TRegistry(KEY_WRITE));
+	   //auto reg = std::make_unique<TRegistry>(KEY_WRITE);
 
 	   reg->RootKey = HKEY_CURRENT_USER;
 
@@ -716,7 +719,8 @@ int __fastcall TMainForm::ReadSettings()
 
   try
 	 {
-	   auto reg = std::make_unique<TRegistry>(KEY_READ);
+       std::unique_ptr<TRegistry> reg(new TRegistry(KEY_READ));
+	   //auto reg = std::make_unique<TRegistry>(KEY_READ);
 
 	   reg->RootKey = HKEY_LOCAL_MACHINE;
 
@@ -786,7 +790,8 @@ void __fastcall TMainForm::SendMsg(String mail_addr, String subject, String from
 {
   if (MailSender->Connected())
 	{
-	  auto msg = std::make_unique<TIdMessage>(MainForm);
+	  std::unique_ptr<TIdMessage> msg(new TIdMessage(MainForm));
+	  //auto msg = std::make_unique<TIdMessage>(MainForm);
 
 	  msg->CharSet = MailCodePage;
 	  msg->Body->Text = log;
@@ -835,8 +840,10 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 {
   String msg, cfg;
 
-  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
-  auto list = std::make_unique<TStringList>();
+  std::unique_ptr<TStringStream> ms(new TStringStream("", TEncoding::UTF8, true));
+  std::unique_ptr<TStringList> list(new TStringList());
+  //auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+  //auto list = std::make_unique<TStringList>();
 
   AContext->Connection->IOHandler->ReadStream(ms.get());
 
@@ -864,7 +871,8 @@ void __fastcall TMainForm::AURAServerExecute(TIdContext *AContext)
 		 }
 	   else if (list->Strings[0] == "#get")
 		 {
-		   auto ls = std::make_unique<TStringList>();
+		   std::unique_ptr<TStringList> ls(new TStringList());
+		   //auto ls = std::make_unique<TStringList>();
 		   int ind = list->Strings[2].ToInt();
 
 		   StrToList(ls.get(), list->Strings[3], "#");
@@ -1080,8 +1088,10 @@ void __fastcall TMainForm::SaveLogTimerTimer(TObject *Sender)
   if (!FileExists(LogPath + "\\" + LogName))
 	SaveToFile(LogPath + "\\" + LogName, "");
 
-  auto ss = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
-  auto fs = std::make_unique<TFileStream>(LogPath + "\\" + LogName, fmOpenReadWrite);
+  std::unique_ptr<TStringStream> ss(new TStringStream("", TEncoding::UTF8, true));
+  std::unique_ptr<TFileStream> fs(new TFileStream(LogPath + "\\" + LogName, fmOpenReadWrite));
+  //auto ss = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+  //auto fs = std::make_unique<TFileStream>(LogPath + "\\" + LogName, fmOpenReadWrite);
 
   Log->SaveToStream(ss.get());
 
@@ -1284,7 +1294,8 @@ int __fastcall TMainForm::ASendStatus(TIdContext *AContext)
   Log->Add("FARA: запит статусу");
 
   String msg = "";
-  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+  std::unique_ptr<TStringStream> ms(new TStringStream("", TEncoding::UTF8, true));
+  //auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
   int res = -1;
 
   try
@@ -1316,8 +1327,10 @@ int __fastcall TMainForm::ASendConfig(TStringList *list, TIdContext *AContext)
   Log->Add("FARA: запит конфігурації");
 
   int ind, res = -1;
-  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
-  auto ls = std::make_unique<TStringList>();
+  std::unique_ptr<TStringStream> ms(new TStringStream("", TEncoding::UTF8, true));
+  std::unique_ptr<TStringList> ls(new TStringList());
+  //auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+  //auto ls = std::make_unique<TStringList>();
 
   String msg = "";
 
@@ -1364,7 +1377,8 @@ int __fastcall TMainForm::ASendLog(TIdContext *AContext)
 
   String msg = "";
   int res = -1;
-  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+  std::unique_ptr<TStringStream> ms(new TStringStream("", TEncoding::UTF8, true));
+  //auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
 
   try
 	 {
@@ -1392,7 +1406,8 @@ int __fastcall TMainForm::ASendConnList(TIdContext *AContext)
   Log->Add("FARA: запит списку з'єднань");
 
   String msg = "";
-  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+  std::unique_ptr<TStringStream> ms(new TStringStream("", TEncoding::UTF8, true));
+  //auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
   int res = -1;
 
   try
@@ -1424,7 +1439,8 @@ int __fastcall TMainForm::ASendThreadList(TIdContext *AContext)
   Log->Add("FARA: запит списку потоків");
 
   String msg = "";
-  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+  std::unique_ptr<TStringStream> ms(new TStringStream("", TEncoding::UTF8, true));
+  //auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
   int res = -1;
 
   try
@@ -1471,7 +1487,8 @@ int __fastcall TMainForm::ASendFile(TStringList *list, TIdContext *AContext)
   Log->Add("FARA: запит файлу " + list->Strings[2]);
 
   String msg = "";
-  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+  std::unique_ptr<TStringStream> ms(new TStringStream("", TEncoding::UTF8, true));
+  //auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
   int res = -1;
 
   try
@@ -1496,7 +1513,8 @@ int __fastcall TMainForm::ASendVersion(TIdContext *AContext)
   Log->Add("FARA: запит версії");
 
   String msg = GetVersionInString(Application->ExeName.c_str());
-  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+  std::unique_ptr<TStringStream> ms(new TStringStream("", TEncoding::UTF8, true));
+  //auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
   int res = -1;
 
   try
@@ -1516,7 +1534,8 @@ int __fastcall TMainForm::ASendVersion(TIdContext *AContext)
 
 int __fastcall TMainForm::ASendStatusAnswer(TIdContext *AContext)
 {
-  auto ms = std::make_unique<TStringStream>("#ok", TEncoding::UTF8, true);
+  std::unique_ptr<TStringStream> ms(new TStringStream("#ok", TEncoding::UTF8, true));
+  //auto ms = std::make_unique<TStringStream>("#ok", TEncoding::UTF8, true);
   int res = -1;
 
   try
@@ -1630,7 +1649,8 @@ void __fastcall TMainForm::ExecuteScript(String ctrl_script_name)
 										 L"",
 										 ScriptLog);
 
-			   auto lst = std::make_unique<TStringList>();
+			   std::unique_ptr<TStringList> lst(new TStringList());
+			   //auto lst = std::make_unique<TStringList>();
 
 			   StrToList(lst.get(), eIface->ShowInfoMessages(), "\r\n");
 
@@ -1666,7 +1686,8 @@ void __fastcall TMainForm::ExecuteScript(const wchar_t *ctrl_script_text)
 
 		   eIface->RunScript(ctrl_script_text, L"", ScriptLog);
 
-		   auto lst = std::make_unique<TStringList>();
+           std::unique_ptr<TStringList> lst(new TStringList());
+		   //auto lst = std::make_unique<TStringList>();
 
 		   StrToList(lst.get(), eIface->ShowInfoMessages(), "\r\n");
 
@@ -1842,7 +1863,8 @@ void __fastcall TMainForm::CheckAndStartConnection(String file)
 
 void __fastcall TMainForm::CreateExistConnections()
 {
-  auto conns = std::make_unique<TStringList>();
+  std::unique_ptr<TStringList> conns(new TStringList());
+  //auto conns = std::make_unique<TStringList>();
   String str;
 
   try

@@ -32,8 +32,10 @@ int __fastcall TConfigLoaderThread::GetConfigurationFromServer()
 
   try
 	 {
-	   auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
-	   auto sender = std::make_unique<TTCPRequester>(ConfigServerHost, ConfigServerPort);
+	   std::unique_ptr<TStringStream> ms(new TStringStream("", TEncoding::UTF8, true));
+	   std::unique_ptr<TTCPRequester> sender(new TTCPRequester(ConfigServerHost, ConfigServerPort));
+	   //auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+	   //auto sender = std::make_unique<TTCPRequester>(ConfigServerHost, ConfigServerPort);
 
 	   ms->WriteString("#auth%" + StationID + "%" + IndexVZ + "%" + IntToStr(RemAdmPort));
 	   ms->Position = 0;
@@ -92,8 +94,10 @@ void __fastcall TConfigLoaderThread::WorkWithFileList(const String &xml_str)
 std::vector<ReceivedFile> __fastcall TConfigLoaderThread::XMLImportFileList(String xml_text)
 {
   std::vector<ReceivedFile> res;
-  auto ixml = std::make_unique<TXMLDocument>(Application);
-  auto lst = std::make_unique<TStringList>();
+  std::unique_ptr<TXMLDocument> ixml(new TXMLDocument(Application));
+  std::unique_ptr<TStringList> lst(new TStringList());
+  //auto ixml = std::make_unique<TXMLDocument>(Application);
+  //auto lst = std::make_unique<TStringList>();
 
   try
 	 {
@@ -196,8 +200,10 @@ void __fastcall TConfigLoaderThread::LoadFileFromConfigurationServer(ReceivedFil
 
   try
 	{
-	  auto ms = std::make_unique<TStringStream>("#request%" + file->Name, TEncoding::UTF8, true);
-	  auto sender = std::make_unique<TTCPRequester>(ConfigServerHost, ConfigServerPort);
+	  std::unique_ptr<TStringStream> ms(new TStringStream("#request%" + file->Name, TEncoding::UTF8, true));
+	  std::unique_ptr<TTCPRequester> sender(new TTCPRequester(ConfigServerHost, ConfigServerPort));
+	  //auto ms = std::make_unique<TStringStream>("#request%" + file->Name, TEncoding::UTF8, true);
+	  //auto sender = std::make_unique<TTCPRequester>(ConfigServerHost, ConfigServerPort);
 
 	  if (sender->AskData(ms.get()))
 		{
@@ -358,12 +364,14 @@ void __fastcall TConfigLoaderThread::RemoveUnnecessaryFiles(std::vector<Received
 	 {
 	   Log->Add("Видалення зайвих файлів");
 
-	   auto check_list = std::make_unique<TStringList>();
+	   std::unique_ptr<TStringList> check_list(new TStringList());
+	   //auto check_list = std::make_unique<TStringList>();
 
 	   for (int i = 0; i < remote_files->size(); i++)
 		  check_list->Add(GetFileNameFromFilePath(remote_files->at(i).Name));
 
-	   auto modules = std::make_unique<TStringList>();
+	   std::unique_ptr<TStringList> modules(new TStringList());
+	   //auto modules = std::make_unique<TStringList>();
 
 	   GetFileList(modules.get(), DataPath, "*", WITHOUT_DIRS, WITHOUT_FULL_PATH);
 
@@ -397,7 +405,8 @@ void __fastcall TConfigLoaderThread::RemoveUnnecessaryFiles(std::vector<Received
 
 void __fastcall TConfigLoaderThread::CheckAndRunExistModules()
 {
-  auto files = std::make_unique<TStringList>();
+  std::unique_ptr<TStringList> files(new TStringList());
+  //auto files = std::make_unique<TStringList>();
   String str;
 
   try

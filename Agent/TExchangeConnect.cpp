@@ -236,7 +236,8 @@ int TExchangeConnect::ReadConfig(String cfg_file)
 	   else if (str != "")
 		 {
 		   short h, m;
-		   auto lst = std::make_unique<TStringList>();
+		   std::unique_ptr<TStringList> lst(new TStringList());
+		   //auto lst = std::make_unique<TStringList>();
 
 		   StrToList(lst.get(), str, ":");
 
@@ -526,7 +527,8 @@ int TExchangeConnect::Exchange()
 
   if (FConfig.EnableDownload)
 	{
-	  auto dl_dirs = std::make_unique<TStringList>();
+	  std::unique_ptr<TStringList> dl_dirs(new TStringList());
+	  //auto dl_dirs = std::make_unique<TStringList>();
 
 	  try
 		 {
@@ -588,7 +590,8 @@ int TExchangeConnect::Exchange()
 
   if (FConfig.EnableUpload)
 	{
-	  auto ul_dirs = std::make_unique<TStringList>();
+      std::unique_ptr<TStringList> ul_dirs(new TStringList());
+	  //auto ul_dirs = std::make_unique<TStringList>();
 
 	  try
 		 {
@@ -759,7 +762,8 @@ int TExchangeConnect::BackUpFiles(TStringList *files, String destin)
 
 int TExchangeConnect::GetFTPFile(String source, String destin, int list_index)
 {
-  auto ms = std::make_unique<TMemoryStream>();
+  std::unique_ptr<TMemoryStream> ms(new TMemoryStream());
+  //auto ms = std::make_unique<TMemoryStream>();
   int res;
 
   String src_name = source;
@@ -820,7 +824,8 @@ int TExchangeConnect::LoadFilesFromServer(String source,
 	return 0;
 
   int result = 0;
-  auto files = std::make_unique<TStringList>();
+  std::unique_ptr<TStringList> files(new TStringList());
+  //auto files = std::make_unique<TStringList>();
 
   try
 	 {
@@ -835,7 +840,8 @@ int TExchangeConnect::LoadFilesFromServer(String source,
 	   result = 0;
 	 }
 
-  auto ok_files = std::make_unique<TStringList>(); //перелік успішно завантажених файлів
+  std::unique_ptr<TStringList> ok_files(new TStringList()); //перелік успішно завантажених файлів
+  //auto ok_files = std::make_unique<TStringList>();
 
   String src_name, remote_file;
 
@@ -918,7 +924,8 @@ int TExchangeConnect::LoadFilesFromServerSubDirs(String source,
   if (!FtpLoader->Connected())
 	return 0;
 
-  auto DirList = std::make_unique<TStringList>();
+  std::unique_ptr<TStringList> DirList(new TStringList());
+  //auto DirList = std::make_unique<TStringList>();
   int result = 0;
 
   if (GetFullDirList(DirList.get(), "") < 0)
@@ -1053,8 +1060,10 @@ int TExchangeConnect::SendFilesToServer(String source,
   if (!FtpLoader->Connected())
 	return 0;
 
-  auto files = std::make_unique<TStringList>();
-  auto ok_files = std::make_unique<TStringList>();
+  std::unique_ptr<TStringList> files(new TStringList());
+  std::unique_ptr<TStringList> ok_files(new TStringList());
+  //auto files = std::make_unique<TStringList>();
+  //auto ok_files = std::make_unique<TStringList>();
 
   try
 	 {
@@ -1147,7 +1156,8 @@ int TExchangeConnect::SendFilesToServerSubDirs(String source,
   if (!FtpLoader->Connected())
 	return 0;
 
-  auto DirList = std::make_unique<TStringList>();
+  std::unique_ptr<TStringList> DirList(new TStringList());
+  //auto DirList = std::make_unique<TStringList>();
   int result = 0;
   String remote_dir;
 
@@ -1191,7 +1201,8 @@ int TExchangeConnect::SendFilesToServerSubDirs(String source,
 
 bool TExchangeConnect::IsFtpDirExist(String source, String dir_name)
 {
-  auto DirList = std::make_unique<TStringList>();
+  std::unique_ptr<TStringList> DirList(new TStringList());
+  //auto DirList = std::make_unique<TStringList>();
   bool result = false;
 
   if (GetFullDirList(DirList.get(), "") < 0)
@@ -1339,7 +1350,8 @@ int TExchangeConnect::GetFTPFileCountWithSubDirs(String source, String mask)
   if (!FtpLoader->Connected())
 	return -1;
 
-  auto DirList = std::make_unique<TStringList>();
+  std::unique_ptr<TStringList> DirList(new TStringList());
+  //auto DirList = std::make_unique<TStringList>();
   String src_name;
   int FileCount = 0;
 
@@ -1396,7 +1408,8 @@ int TExchangeConnect::GetFTPFileCountWithSubDirsRegEx(String source, String reg_
   if (!FtpLoader->Connected())
 	return -1;
 
-  auto DirList = std::make_unique<TStringList>();
+  std::unique_ptr<TStringList> DirList(new TStringList());
+  //auto DirList = std::make_unique<TStringList>();
   String src_name;
   int FileCount = 0;
 
@@ -1581,7 +1594,8 @@ ExchageExitCode TExchangeConnect::DownLoad(String source,
 {
   int fcnt;
   ExchageExitCode result;
-  auto d_mask_lst = std::make_unique<TStringList>();
+  std::unique_ptr<TStringList> d_mask_lst(new TStringList());
+  //auto d_mask_lst = std::make_unique<TStringList>();
   StrToList(d_mask_lst.get(), mask, ";");
 
   Status = "Завантаження...";
@@ -1675,7 +1689,8 @@ ExchageExitCode TExchangeConnect::UpLoad(String source,
   Status = "Вивантаження...";
   WriteLog(Status);
 
-  auto u_mask_lst = std::make_unique<TStringList>();
+  std::unique_ptr<TStringList> u_mask_lst(new TStringList());
+  //auto u_mask_lst = std::make_unique<TStringList>();
 
   StrToList(u_mask_lst.get(), mask, ";");
 
@@ -1840,8 +1855,10 @@ void TExchangeConnect::ParsingParamsForVars()
 
 void TExchangeConnect::DeleteOldBackUpDirs()
 {
-  auto dir_list = std::make_unique<TStringList>();
-  auto del_list = std::make_unique<TStringList>();
+  std::unique_ptr<TStringList> dir_list(new TStringList());
+  std::unique_ptr<TStringList> del_list(new TStringList());
+  //auto dir_list = std::make_unique<TStringList>();
+  //auto del_list = std::make_unique<TStringList>();
 
   try
 	 {
@@ -1933,8 +1950,10 @@ bool TExchangeConnect::VerifyFile(const String &remote_file, const String &local
 	 {
 	   long remote_crc = FtpLoader->CRC(remote_file);
 	   long local_crc = 0;
-	   auto local_hash = std::make_unique<TIdHashCRC32>();
-	   auto local_stream = std::make_unique<TFileStream>(local_file, fmOpenRead);
+	   std::unique_ptr<TIdHashCRC32> local_hash(new TIdHashCRC32());
+	   std::unique_ptr<TFileStream> local_stream(new TFileStream(local_file, fmOpenRead));
+	   //auto local_hash = std::make_unique<TIdHashCRC32>();
+	   //auto local_stream = std::make_unique<TFileStream>(local_file, fmOpenRead);
 
 	   local_crc = local_hash->HashValue(local_stream.get());
 
