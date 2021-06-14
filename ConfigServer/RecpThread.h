@@ -7,7 +7,7 @@ Copyright 2020-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 //---------------------------------------------------------------------------
 #include <System.Classes.hpp>
 
-#include "RecpOrganizer.h"
+#include "..\..\work-functions\RecpOrganizer.h"
 //---------------------------------------------------------------------------
 class TRecpientCollectionThread : public TThread
 {

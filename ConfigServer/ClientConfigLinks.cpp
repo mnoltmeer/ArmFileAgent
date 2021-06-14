@@ -4,7 +4,7 @@ Copyright 2020-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 //---------------------------------------------------------------------------
 
 #pragma hdrstop
-#include "..\..\work-functions\MyFunc.h"
+#include "MyFunc.h"
 #include "ClientConfigLinks.h"
 //---------------------------------------------------------------------------
 
@@ -307,8 +307,8 @@ void ClientConfigManager::LoadFromFile(const String &file)
 {
   try
 	 {
-	   auto loader = std::make_unique<TStringList>();
-	   auto lst = std::make_unique<TStringList>();
+	   std::unique_ptr<TStringList> loader(new TStringList());
+	   std::unique_ptr<TStringList> lst(new TStringList());
 
 	   loader->LoadFromFile(file);
 
@@ -331,7 +331,7 @@ void ClientConfigManager::SaveToFile(const String &file)
 {
   try
 	 {
-	   auto saver = std::make_unique<TStringList>();
+	   std::unique_ptr<TStringList> saver(new TStringList());
 
 	   for (int i = 0; i < Count; i++)
 		  {

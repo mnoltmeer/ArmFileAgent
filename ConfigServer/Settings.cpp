@@ -37,7 +37,7 @@ void __fastcall TSettingsForm::ReadSettings()
 {
   try
 	 {
-	   auto reg = std::make_unique<TRegistry>(KEY_READ);
+	   std::unique_ptr<TRegistry> reg(new TRegistry(KEY_READ));
 
 	   reg->RootKey = HKEY_CURRENT_USER;
 
@@ -65,7 +65,7 @@ void __fastcall TSettingsForm::WriteSettings()
 {
   try
 	 {
-	   auto reg = std::make_unique<TRegistry>();
+	   std::unique_ptr<TRegistry> reg(new TRegistry());
 
 	   reg->RootKey = HKEY_CURRENT_USER;
 

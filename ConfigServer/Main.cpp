@@ -6,7 +6,7 @@ Copyright 2020-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 #include <vcl.h>
 #pragma hdrstop
 
-#include "..\..\work-functions\MyFunc.h"
+#include "MyFunc.h"
 #include "RecpOrganizer.h"
 #include "RecpThread.h"
 #include "ClientConfigLinks.h"
@@ -405,8 +405,8 @@ void __fastcall TServerForm::ImportInAddrBookClick(TObject *Sender)
 				   grp = AddrBook->FindGroup("Несортоване");
 				 }
 
-			   auto old_book = std::make_unique<TStringList>();
-			   auto lst = std::make_unique<TStringList>();
+			   std::unique_ptr<TStringList> old_book(new TStringList());
+			   std::unique_ptr<TStringList> lst(new TStringList());
 
 			   old_book->LoadFromFile(OpenCfgDialog->FileName, TEncoding::UTF8);
 
@@ -430,7 +430,7 @@ void __fastcall TServerForm::ImportInAddrBookClick(TObject *Sender)
 			 }
 		   else if (file_ext == "grp")
 			 {
-			   auto ImportBook = std::make_unique<TRecpientItemCollection>(OpenCfgDialog->FileName);
+			   std::unique_ptr<TRecpientItemCollection> ImportBook(new TRecpientItemCollection(OpenCfgDialog->FileName));
 
 			   AddrBook->ImportData(ImportBook.get());
 			   AddrBook->CreateSortedTree(AddrList);
@@ -517,7 +517,7 @@ void __fastcall TServerForm::ExportHostStatus(const String &file)
 {
   try
 	 {
-	   auto fs = std::make_unique<TFileStream>(file, fmOpenWrite|fmCreate);
+	   std::unique_ptr<TFileStream> fs(new TFileStream(file, fmOpenWrite|fmCreate));
 	   unsigned int id, status;
 
 	   for (int i = 0; i < AddrBook->Count; i++)
@@ -588,7 +588,7 @@ void __fastcall TServerForm::ReadSettings()
 {
   try
 	 {
-	   auto reg = std::make_unique<TRegistry>(KEY_READ);
+	   std::unique_ptr<TRegistry> reg(new TRegistry(KEY_READ));
 
 	   reg->RootKey = HKEY_CURRENT_USER;
 
@@ -643,7 +643,7 @@ void __fastcall TServerForm::WriteSettings()
 {
   try
 	 {
-	   auto reg = std::make_unique<TRegistry>();
+	   std::unique_ptr<TRegistry> reg(new TRegistry());
 
 	   reg->RootKey = HKEY_CURRENT_USER;
 
@@ -683,7 +683,7 @@ void __fastcall TServerForm::WriteSettings()
 
 void __fastcall TServerForm::LogFilterDropDown(TObject *Sender)
 {
-  auto logs = std::make_unique<TStringList>();
+  std::unique_ptr<TStringList> logs(new TStringList());
 
   LogFilter->Clear();
   GetFileList(logs.get(), LogDir, "*.log", WITHOUT_DIRS, WITHOUT_FULL_PATH);
@@ -702,8 +702,8 @@ void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 {
   String msg;
 
-  auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
-  auto list = std::make_unique<TStringList>();
+  std::unique_ptr<TStringStream> ms(new TStringStream("", TEncoding::UTF8, true));
+  std::unique_ptr<TStringList> list(new TStringList());
 
   AContext->Connection->IOHandler->ReadStream(ms.get());
 
@@ -765,14 +765,17 @@ void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 		 }
 	   else if (list->Strings[0] == "#request")
 		 {
-		   auto fs = std::make_unique<TFileStream>(list->Strings[1], fmOpenRead|fmShareDenyNone);
+		   std::unique_ptr<TFileStream> fs(new TFileStream(list->Strings[1],
+														   fmOpenRead|fmShareDenyNone));
+
 		   fs->Position = 0;
 		   AContext->Connection->IOHandler->Write(fs.get(), fs->Size, true);
 		 }
 	   else if (list->Strings[0] == "#getaddrbook")
 		 {
-		   auto fs = std::make_unique<TFileStream>(DataDir + "\\hosts.grp",
-		   										   fmOpenRead|fmShareDenyNone);
+		   std::unique_ptr<TFileStream> fs(new TFileStream(DataDir + "\\hosts.grp",
+														   fmOpenRead|fmShareDenyNone));
+
 		   fs->Position = 0;
 		   AContext->Connection->IOHandler->Write(fs.get(), fs->Size, true);
 		 }
@@ -780,8 +783,9 @@ void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 		 {
 		   ExportHostStatus(DataDir + "\\hosts.sts");
 
-		   auto fs = std::make_unique<TFileStream>(DataDir + "\\hosts.sts",
-												   fmOpenRead|fmShareDenyNone);
+		   std::unique_ptr<TFileStream> fs(new TFileStream(DataDir + "\\hosts.sts",
+														   fmOpenRead|fmShareDenyNone));
+
 		   fs->Position = 0;
 		   AContext->Connection->IOHandler->Write(fs.get(), fs->Size, true);
 		 }
@@ -860,28 +864,30 @@ void __fastcall TServerForm::ExportAddrAndLinks(const String &file)
        AddrBook->Save();
 	   ConfigManager->SaveToFile(DataDir + "\\config.links");
 
-	   auto result_file = std::make_unique<TFileStream>(file, fmOpenWrite|fmCreate);
+	   std::unique_ptr<TFileStream> result_file(new TFileStream(file, fmOpenWrite|fmCreate));
 
 	   try
 		  {
 			__int64 sz;
 
-			auto addr_file = std::make_unique<TFileStream>(DataDir + "\\hosts.grp",
-														   fmOpenRead|fmShareDenyNone);
+			std::unique_ptr<TFileStream> addr_file(new TFileStream(DataDir + "\\hosts.grp",
+																   fmOpenRead|fmShareDenyNone));
+
 			sz = addr_file->Size;
 
-			auto buf = std::make_unique<Byte[]>(sz);
+			std::unique_ptr<Byte[]> buf(new Byte[sz]);
 
 			addr_file->Read(buf.get(), sz);
 			result_file->Position += result_file->Write(&sz, sizeof(__int64));
 			result_file->Position += result_file->Write(buf.get(), sz);
 			buf.release();
 
-			auto links_file = std::make_unique<TFileStream>(DataDir + "\\config.links",
-															fmOpenRead|fmShareDenyNone);
+			std::unique_ptr<TFileStream> links_file(new TFileStream(DataDir + "\\config.links",
+																   fmOpenRead|fmShareDenyNone));
 
 			sz = links_file->Size;
-			auto buf2 = std::make_unique<Byte[]>(sz);
+
+			std::unique_ptr<Byte[]> buf2(new Byte[sz]);
 
 			addr_file->Read(buf2.get(), sz);
 			result_file->Position += result_file->Write(&sz, sizeof(sz));
@@ -902,28 +908,28 @@ void __fastcall TServerForm::ImportAddrAndLinks(const String &file)
 	 {
 	   StatusChecker->Suspend();
 
-	   auto result_file = std::make_unique<TFileStream>(file, fmOpenRead|fmShareDenyNone);
+	   std::unique_ptr<TFileStream> result_file(new TFileStream(file, fmOpenRead|fmShareDenyNone));
 
 	   try
 		  {
 			__int64 sz;
-			auto addr_file = std::make_unique<TFileStream>(DataDir + "\\hosts.grp",
-														   fmOpenWrite|fmCreate);
+			std::unique_ptr<TFileStream> addr_file(new TFileStream(DataDir + "\\hosts.grp",
+																   fmOpenWrite|fmCreate));
 
 			result_file->Position += result_file->Read(&sz, sizeof(__int64));
 
-			auto buf = std::make_unique<Byte[]>(sz);
+			std::unique_ptr<Byte[]> buf(new Byte[sz]);
 
 			result_file->Position += result_file->Read(buf.get(), sz);
 			addr_file->Write(buf.get(), sz);
 			buf.release();
 
-			auto links_file = std::make_unique<TFileStream>(DataDir + "\\config.links",
-															fmOpenWrite|fmCreate);
+            std::unique_ptr<TFileStream> links_file(new TFileStream(DataDir + "\\config.links",
+																	fmOpenWrite|fmCreate));
 
 			result_file->Position += result_file->Read(&sz, sizeof(__int64));
 
-			auto buf2 = std::make_unique<Byte[]>(sz);
+			std::unique_ptr<Byte[]> buf2(new Byte[sz]);
 
 			result_file->Position += result_file->Read(buf2.get(), sz);
 			links_file->Write(buf2.get(), sz);

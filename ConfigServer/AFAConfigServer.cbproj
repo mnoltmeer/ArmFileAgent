@@ -47,7 +47,6 @@
         <FinalOutputDir>.\$(Platform)\$(Config)</FinalOutputDir>
         <BCC_wpar>false</BCC_wpar>
         <BCC_OptimizeForSpeed>true</BCC_OptimizeForSpeed>
-        <BCC_ExtendedErrorInfo>true</BCC_ExtendedErrorInfo>
         <ILINK_TranslatedLibraryPath>$(BDSLIB)\$(PLATFORM)\release\$(LANGDIR);$(ILINK_TranslatedLibraryPath)</ILINK_TranslatedLibraryPath>
         <ProjectType>CppVCLApplication</ProjectType>
         <PackageImports>CloudService;FireDAC;FireDACCommon;FireDACCommonDriver;FireDACIBDriver;FireDACSqliteDriver;inet;RESTBackendComponents;RESTComponents;soapmidas;soaprtl;soapserver;$(PackageImports)</PackageImports>
@@ -59,8 +58,6 @@
         <UWP_CppLogo44>$(BDS)\bin\Artwork\Windows\UWP\cppreg_UwpDefault_44.png</UWP_CppLogo44>
         <UWP_CppLogo150>$(BDS)\bin\Artwork\Windows\UWP\cppreg_UwpDefault_150.png</UWP_CppLogo150>
         <SanitizedProjectName>AFAConfigServer</SanitizedProjectName>
-        <IncludePath>..\..\work-functions\;$(IncludePath)</IncludePath>
-        <ILINK_LibraryPath>..\..\work-functions\;$(ILINK_LibraryPath)</ILINK_LibraryPath>
         <Custom_Styles>&quot;Windows10 SlateGray|VCLSTYLE|$(BDSCOMMONDIR)\Styles\Windows10SlateGray.vsf&quot;</Custom_Styles>
         <VerInfo_Locale>1058</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.1.16;InternalName=;LegalCopyright=2019-2020 Максим Нольтмєєр (m.noltmeer@gmail.com);LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=АС &quot;Менеджер файлів АРМ ВЗ&quot; Консоль адміністрування;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
@@ -97,7 +94,6 @@
         <BCC_SourceDebuggingOn>true</BCC_SourceDebuggingOn>
         <ILINK_TranslatedLibraryPath>$(BDSLIB)\$(PLATFORM)\debug\$(LANGDIR);$(ILINK_TranslatedLibraryPath)</ILINK_TranslatedLibraryPath>
         <BCC_DebugLineNumbers>true</BCC_DebugLineNumbers>
-        <BCC_UseClassicCompiler>false</BCC_UseClassicCompiler>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
@@ -121,13 +117,12 @@
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <LinkPackageStatics>rtl.lib;vcl.lib;IndySystem.lib;IndyCore.lib;vclimg.lib;IndyProtocols.lib</LinkPackageStatics>
         <VerInfo_AutoIncVersion>true</VerInfo_AutoIncVersion>
-        <VerInfo_Keys>CompanyName=;FileDescription=Сервер конфігурацій;FileVersion=1.0.0.2;InternalName=;LegalCopyright=2020-2021 Максим Нольтмєєр (m.noltmeer@gmail.com);LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=АС &quot;Файловий агент АРМ ВЗ&quot;;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=;FileDescription=Сервер конфігурацій;FileVersion=1.0.0.3;InternalName=;LegalCopyright=2020-2021 Максим Нольтмєєр (m.noltmeer@gmail.com);LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=АС &quot;Файловий агент АРМ ВЗ&quot;;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <AppDPIAwarenessMode>PerMonitor</AppDPIAwarenessMode>
         <Icon_MainIcon>AFAConfigServer_Icon.ico</Icon_MainIcon>
         <UWP_CppLogo44>..\icos\server_115155.png</UWP_CppLogo44>
         <UWP_CppLogo150>..\icos\server_115155.png</UWP_CppLogo150>
-        <VerInfo_Build>2</VerInfo_Build>
-        <BCC_UseClassicCompiler>false</BCC_UseClassicCompiler>
+        <VerInfo_Build>3</VerInfo_Build>
         <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
     <ItemGroup>
@@ -160,6 +155,14 @@
             <DependentOn>Main.h</DependentOn>
             <BuildOrder>2</BuildOrder>
         </CppCompile>
+        <CppCompile Include="MyFunc.cpp">
+            <DependentOn>MyFunc.h</DependentOn>
+            <BuildOrder>11</BuildOrder>
+        </CppCompile>
+        <CppCompile Include="RecpOrganizer.cpp">
+            <DependentOn>RecpOrganizer.h</DependentOn>
+            <BuildOrder>11</BuildOrder>
+        </CppCompile>
         <CppCompile Include="RecpThread.cpp">
             <DependentOn>RecpThread.h</DependentOn>
             <BuildOrder>5</BuildOrder>
@@ -174,16 +177,8 @@
             <DependentOn>StatusChecker.h</DependentOn>
             <BuildOrder>10</BuildOrder>
         </CppCompile>
-        <CppCompile Include="..\..\work-functions\MyFunc.cpp">
-            <DependentOn>..\..\work-functions\MyFunc.h</DependentOn>
-            <BuildOrder>4</BuildOrder>
-        </CppCompile>
-        <CppCompile Include="..\..\work-functions\RecpOrganizer.cpp">
-            <DependentOn>..\..\work-functions\RecpOrganizer.h</DependentOn>
-            <BuildOrder>10</BuildOrder>
-        </CppCompile>
-        <CppCompile Include="..\..\work-functions\TCPRequester.cpp">
-            <DependentOn>..\..\work-functions\TCPRequester.h</DependentOn>
+        <CppCompile Include="TCPRequester.cpp">
+            <DependentOn>TCPRequester.h</DependentOn>
             <BuildOrder>11</BuildOrder>
         </CppCompile>
         <FormResources Include="Settings.dfm"/>
@@ -296,12 +291,6 @@
                 <DeployFile LocalName=".\Win32\Debug\AFAConfigServer.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>AFAConfigServer.exe</RemoteName>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
-                <DeployFile LocalName=".\Win32\Debug\AFAConfigServer.tds" Configuration="Debug" Class="DebugSymbols">
-                    <Platform Name="Win32">
-                        <RemoteName>AFAConfigServer.tds</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

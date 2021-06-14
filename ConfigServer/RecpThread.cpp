@@ -5,8 +5,11 @@ Copyright 2020-2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 #include <System.hpp>
 #pragma hdrstop
 
+#include "Main.h"
 #include "RecpThread.h"
 #pragma package(smart_init)
+
+extern TServerForm *ServerForm;
 //---------------------------------------------------------------------------
 
 __fastcall TRecpientCollectionThread::TRecpientCollectionThread(bool CreateSuspended)
@@ -24,8 +27,20 @@ void __fastcall TRecpientCollectionThread::Execute()
 	{
 	  if ((passed >= CheckInterval) && (CollectionChanged))
 		{
-		  Collection->Save();
-		  CollectionChanged = false;
+		  try
+			 {
+			   Collection->Save();
+			   CollectionChanged = false;
+			 }
+		  catch (Exception &e)
+			 {
+			   ServerForm->WriteLog("TRecpientCollectionThread::Execute: " + e.ToString());
+			 }
+		  catch (...)
+			 {
+			   ServerForm->WriteLog("TRecpientCollectionThread::Execute: Unhandled exception");
+			 }
+		  
           passed = 0;
 		}
 	  else

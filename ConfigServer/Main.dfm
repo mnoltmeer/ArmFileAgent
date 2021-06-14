@@ -1467,6 +1467,7 @@ object ServerForm: TServerForm
               Caption = #1047#1084#1110#1085#1077#1085#1086
               Width = 120
             end>
+          Items.ItemData = {}
           RowSelect = True
           TabOrder = 1
           ViewStyle = vsReport

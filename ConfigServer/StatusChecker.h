@@ -9,7 +9,7 @@ Copyright 2021 Maxim Noltmeer (m.noltmeer@gmail.com)
 #include <System.Classes.hpp>
 #include <memory>
 
-#include "..\..\work-functions\TCPRequester.h"
+#include "TCPRequester.h"
 #include "RecpOrganizer.h"
 //---------------------------------------------------------------------------
 class TStatusCheckThread : public TThread

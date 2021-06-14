@@ -22,27 +22,30 @@ __fastcall TStatusCheckThread::TStatusCheckThread(bool CreateSuspended)
 
 void __fastcall TStatusCheckThread::Execute()
 {
-  FSender = std::make_unique<TTCPRequester>();
+  std::unique_ptr<TTCPRequester> tmp(new TTCPRequester());
+  FSender = std::move(tmp);
+
   int passed = CheckInterval;
 
-  if (!FSender)
+  if (FSender)
 	{
-	  ServerForm->WriteLog("StatusCheckThread: Sender not created. Terminating thread");
-	  this->Terminate();
-    }
-
-  while (!Terminated)
-	{
-	  if (passed >= CheckInterval)
+	  while (!Terminated)
 		{
-          Check();
-          passed = 0;
+		  if (passed >= CheckInterval)
+			{
+			  Check();
+			  passed = 0;
+			}
+		  else
+			{
+			  this->Sleep(100);
+		  	  passed += 100;
+			}
 		}
-	  else
-		{
-          this->Sleep(100);
-		  passed += 100;
-        }
+	}
+  else
+	{
+	  ServerForm->WriteLog("StatusCheckThread: Sender not created. End thread");
 	}
 }
 //---------------------------------------------------------------------------
@@ -51,7 +54,7 @@ void __fastcall TStatusCheckThread::Check()
 {
   try
 	 {
-	   auto ms = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+	   std::unique_ptr<TStringStream> ms(new TStringStream("", TEncoding::UTF8, true));
 	   std::vector<int> id_list;
 
 	   id_list.clear();
@@ -89,7 +92,11 @@ void __fastcall TStatusCheckThread::Check()
 	 }
   catch (std::exception &e)
 	 {
-       ServerForm->WriteLog("Listener: " + String(e.what()));
-     }
+	   ServerForm->WriteLog("StatusCheckThread::Check: " + String(e.what()));
+	 }
+  catch (...)
+	 {
+	   ServerForm->WriteLog("StatusCheckThread::Check: Unhandled exception");
+	 }
 }
 //---------------------------------------------------------------------------
