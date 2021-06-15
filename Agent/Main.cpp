@@ -95,12 +95,13 @@ void __fastcall TMainForm::FormDestroy(TObject *Sender)
 	   try
 		  {
 			StopApplication();
-			ReleaseResources();
 		  }
 	   catch (Exception &e)
 		  {
 			Log->Add(e.ToString());
 		  }
+
+       ReleaseResources();
 	 }
   __finally
 	 {
@@ -114,7 +115,9 @@ void __fastcall TMainForm::CreateResources()
 {
   try
 	 {
-       UsedAppLogDir = "AFAgent\\Log";
+	   Log = new TThreadSafeLog();
+
+	   UsedAppLogDir = "AFAgent\\Log";
 
 	   AppPath = GetDirPathFromFilePath(Application->ExeName);
 	   AppName = GetFileNameFromFilePath(Application->ExeName);
@@ -137,7 +140,6 @@ void __fastcall TMainForm::CreateResources()
 	   LogName = DateToStr(Date()) + ".log";
 
 	   MenuItemList = new TList();
-	   Log = new TThreadSafeLog();
 	   ConnManager = new TConnectionManager();
 	   ConfigLoader = new TConfigLoaderThread(true);
 	 }
@@ -1243,20 +1245,17 @@ void __fastcall TMainForm::StopApplication()
 	   LbStatus->Caption = "Зупинено";
 	   LbStatus->Font->Color = clRed;
 
-	   AURAServer->Active = false;
-
 	   Log->Add("Кінець роботи");
 
 	   AURAStartTimer->Enabled = false;
 	   SaveLogTimer->Enabled = false;
-
-       Log->SaveToFile(LogPath + "\\" + LogName);
+	   AURAServer->Active = false;
 	 }
   catch (Exception &e)
 	 {
-	   Log->Add("Завершення роботи: " + e.ToString());
+	   e.Message = "Завершення роботи: " + e.Message;
 
-	   throw Exception("Помилка завершення роботи!");
+	   throw e;
 	 }
 }
 //---------------------------------------------------------------------------

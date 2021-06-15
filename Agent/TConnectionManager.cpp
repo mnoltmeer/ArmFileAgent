@@ -383,10 +383,17 @@ void TConnectionManager::Stop(TExchangeConnect *conn)
 
 	  if (th)
 		{
-		  th->Terminate();
+		  if (th->Started)
+			{
+			  th->Terminate();
 
-          while (!th->Finished)
-			Sleep(100);
+			  HANDLE hThread = reinterpret_cast<HANDLE>(th->Handle);
+
+			  DWORD wait = WaitForSingleObject(hThread, 300);
+
+			  if (wait == WAIT_TIMEOUT)
+				TerminateThread(hThread, 0);
+			}
 
 		  th->Connection = NULL;
 		  DeleteThread(th->ThreadID);
