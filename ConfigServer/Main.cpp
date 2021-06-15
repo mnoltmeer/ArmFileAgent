@@ -721,6 +721,8 @@ void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 
 	   if (list->Strings[0] == "#auth")
 		 {
+		   WriteLog("Аутентифікація клієнта: " + host);
+
 		   String station = list->Strings[1],
 				  index = list->Strings[2],
 				  port = list->Strings[3];
@@ -758,6 +760,8 @@ void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 		   itm->Node->StateIndex = 3;
 
 //надсилаємо хосту перелік файлів
+		   WriteLog("Надсилання переліку файлів клієнту: " + host + " (" + index + ")");
+
 		   ms->Clear();
 		   ms->WriteString(CreateClientFileList(index, station));
 		   ms->Position = 0;
@@ -765,6 +769,8 @@ void __fastcall TServerForm::ListenerExecute(TIdContext *AContext)
 		 }
 	   else if (list->Strings[0] == "#request")
 		 {
+		   WriteLog("Надсилання файлу " + list->Strings[1] + " клієнту: " + host);
+
 		   std::unique_ptr<TFileStream> fs(new TFileStream(list->Strings[1],
 														   fmOpenRead|fmShareDenyNone));
 
