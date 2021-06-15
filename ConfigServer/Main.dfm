@@ -352,26 +352,38 @@ object ServerForm: TServerForm
       BevelOuter = bvNone
       TabOrder = 1
       object Label9: TLabel
-        Left = 4
+        AlignWithMargins = True
+        Left = 3
         Top = 8
         Width = 90
-        Height = 13
+        Height = 19
+        Margins.Top = 8
+        Align = alLeft
         Caption = #1055#1077#1088#1077#1075#1083#1103#1085#1091#1090#1080' '#1083#1086#1075':'
+        ExplicitLeft = 4
+        ExplicitHeight = 13
       end
       object LogFilter: TComboBox
-        Left = 98
-        Top = 4
-        Width = 225
+        AlignWithMargins = True
+        Left = 99
+        Top = 5
+        Width = 230
         Height = 21
+        Margins.Top = 5
+        Align = alClient
         TabOrder = 0
         OnChange = LogFilterChange
         OnDropDown = LogFilterDropDown
+        ExplicitLeft = 98
+        ExplicitTop = 4
+        ExplicitWidth = 225
       end
       object RefreshLog: TBitBtn
-        Left = 329
+        Left = 332
         Top = 0
         Width = 30
         Height = 30
+        Align = alRight
         Glyph.Data = {
           42090000424D4209000000000000420000002800000018000000180000000100
           20000300000000090000C30E0000C30E000000000000000000000000FF0000FF
@@ -451,6 +463,7 @@ object ServerForm: TServerForm
         ModalResult = 4
         TabOrder = 1
         OnClick = RefreshLogClick
+        ExplicitLeft = 329
       end
     end
   end
