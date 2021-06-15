@@ -91,7 +91,8 @@ void __fastcall TGuardian::FormClose(TObject *Sender, TCloseAction &Action)
 String __fastcall TGuardian::GetAgentPath()
 {
   String result = "";
-  auto reg = std::make_unique<TRegistry>(KEY_READ);
+  std::unique_ptr<TRegistry> reg(new TRegistry(KEY_READ));
+  //auto reg = std::make_unique<TRegistry>(KEY_READ);
 
   try
 	 {
@@ -116,12 +117,14 @@ String __fastcall TGuardian::GetAgentPath()
 
 void __fastcall TGuardian::SaveLogTimerTimer(TObject *Sender)
 {
-  auto ss = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
+  std::unique_ptr<TStringStream> ss(new TStringStream("", TEncoding::UTF8, true));
+  //auto ss = std::make_unique<TStringStream>("", TEncoding::UTF8, true);
 
   if (!FileExists(LogPath + "\\" + LogName))
 	SaveToFile(LogPath + "\\" + LogName, "");
 
-  auto fs = std::make_unique<TFileStream>(LogPath + "\\" + LogName, fmOpenReadWrite);
+  std::unique_ptr<TFileStream> fs(new TFileStream(LogPath + "\\" + LogName, fmOpenReadWrite));
+  //auto fs = std::make_unique<TFileStream>(LogPath + "\\" + LogName, fmOpenReadWrite);
 
   Log->SaveToStream(ss.get());
 

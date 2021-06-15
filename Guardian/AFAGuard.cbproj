@@ -109,13 +109,15 @@
     <PropertyGroup Condition="'$(Cfg_2_Win32)'!=''">
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
-        <BCC_UseClassicCompiler>false</BCC_UseClassicCompiler>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <Icon_MainIcon>AFAGuard_Icon.ico</Icon_MainIcon>
         <UWP_CppLogo44>..\icos\file_type_rubocop_icon_1301874565.png</UWP_CppLogo44>
         <UWP_CppLogo150>..\icos\file_type_rubocop_icon_1301874565.png</UWP_CppLogo150>
-        <VerInfo_Keys>CompanyName=;FileDescription=Guardian;FileVersion=1.0.0.0;InternalName=;LegalCopyright=2020-2021 Максим Нольтмєєр (m.noltmeer@gmail.com);LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=АС &quot;Файловий агент АРМ ВЗ&quot;;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=;FileDescription=Guardian;FileVersion=1.0.0.2;InternalName=;LegalCopyright=2020-2021 Максим Нольтмєєр (m.noltmeer@gmail.com);LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=АС &quot;Файловий агент АРМ ВЗ&quot;;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <LinkPackageStatics>rtl.lib;vcl.lib;IndyProtocols.lib;IndyCore.lib;IndySystem.lib</LinkPackageStatics>
+        <VerInfo_AutoIncVersion>true</VerInfo_AutoIncVersion>
+        <VerInfo_Locale>1033</VerInfo_Locale>
+        <VerInfo_Build>2</VerInfo_Build>
     </PropertyGroup>
     <ItemGroup>
         <CppCompile Include="AFAGuard.cpp">
