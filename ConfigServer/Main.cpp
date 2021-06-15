@@ -695,6 +695,7 @@ void __fastcall TServerForm::LogFilterChange(TObject *Sender)
 {
   Log->Lines->LoadFromFile(LogDir + "\\" + LogFilter->Items->Strings[LogFilter->ItemIndex],
 						   TEncoding::UTF8);
+  Log->Perform(WM_VSCROLL, SB_BOTTOM, 0);
 }
 //---------------------------------------------------------------------------
 
@@ -1124,6 +1125,7 @@ void __fastcall TServerForm::RefreshLogClick(TObject *Sender)
 {
   Log->Lines->LoadFromFile(LogDir + "\\" + LogFilter->Items->Strings[LogFilter->ItemIndex],
 						   TEncoding::UTF8);
+  Log->Perform(WM_VSCROLL, SB_BOTTOM, 0);
 }
 //---------------------------------------------------------------------------
 
