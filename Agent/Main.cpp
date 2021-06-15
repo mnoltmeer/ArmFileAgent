@@ -1225,8 +1225,8 @@ void __fastcall TMainForm::StartApplication()
 	  if (!WaitForLoadFromServer(2000))
 		{
 		  Log->Add("Немає відповіді від серверу конфігурацій");
-
 		  Log->Add("Іініціалізація з'єднаннь з наявних файлів");
+
 		  CreateExistConnections();
 		}
 	  else
@@ -1736,7 +1736,7 @@ void __fastcall TMainForm::LoadFunctionsToELI()
 
 bool __fastcall TMainForm::WaitForLoadFromServer(long millisec)
 {
-  bool res;
+  bool res = false;
   long passed = 0;
 
   try
@@ -1845,13 +1845,20 @@ void __fastcall TMainForm::CheckAndStartConnection(String file)
 
 	   TExchangeConnect *conn = ConnManager->Find(DataPath + "\\" + file);
 
-	   if (conn && (conn->Working()))
-		 {
-		   Log->Add("З'єднання " + conn->Caption + " вже запущене");
-		   return;
-		 }
-	   else if (!conn)
+	   if (!conn)
 		 CreateConnection(DataPath + "\\" + file);
+	   else
+		 {
+		   if (conn->Working())
+			 Log->Add("З'єднання " + conn->Caption + " вже запущене");
+		   else if (!conn->Initialized())
+			 {
+			   DestroyConnection(conn->ID);
+               CreateConnection(DataPath + "\\" + file);
+			 }
+		   else if (!conn->Working())
+             conn->Start();
+		 }
 	 }
   catch (Exception &e)
 	 {
