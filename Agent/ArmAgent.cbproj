@@ -115,15 +115,14 @@
         <AppEnableRuntimeThemes>true</AppEnableRuntimeThemes>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <LinkPackageStatics>rtl.lib;vcl.lib;IndySystem.lib;IndyProtocols.lib;IndyCore.lib;vclimg.lib;xmlrtl.lib</LinkPackageStatics>
-        <VerInfo_Keys>CompanyName=;FileDescription=Файловий Агент АРМ ВЗ;FileVersion=0.0.5.17;InternalName=;LegalCopyright=2020-2021 Максим Нольтмєєр (m.noltmeer@gmail.com);LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=АС &quot;Файловий агент АРМ ВЗ&quot;;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=;FileDescription=Файловий Агент АРМ ВЗ;FileVersion=1.0.1.1;InternalName=;LegalCopyright=2020-2021 Максим Нольтмєєр (m.noltmeer@gmail.com);LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=АС &quot;Файловий агент АРМ ВЗ&quot;;ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <VerInfo_AutoIncVersion>true</VerInfo_AutoIncVersion>
         <AppDPIAwarenessMode>PerMonitor</AppDPIAwarenessMode>
-        <VerInfo_Build>17</VerInfo_Build>
-        <VerInfo_MajorVer>0</VerInfo_MajorVer>
+        <VerInfo_Build>1</VerInfo_Build>
         <Icon_MainIcon>ArmAgent_Icon1.ico</Icon_MainIcon>
         <UWP_CppLogo44>..\icos\icon.png</UWP_CppLogo44>
         <UWP_CppLogo150>..\icos\icon.png</UWP_CppLogo150>
-        <VerInfo_Release>5</VerInfo_Release>
+        <VerInfo_Release>1</VerInfo_Release>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <BCC_UseClassicCompiler>false</BCC_UseClassicCompiler>
     </PropertyGroup>
