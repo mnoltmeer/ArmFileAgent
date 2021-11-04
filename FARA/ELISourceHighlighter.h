@@ -1,5 +1,5 @@
 /*!
-Copyright 2019-2020  Maxim Noltmeer (m.noltmeer@gmail.com)
+Copyright 2019-2021  Maxim Noltmeer (m.noltmeer@gmail.com)
 
 This file is part of ELI IDE.
 
@@ -31,6 +31,8 @@ This file is part of ELI IDE.
 #define ESH_LIGHT_THEME 1
 #define ESH_DARK_THEME 0
 
+bool IsEndSym(wchar_t symb);
+
 struct MarkedFragment
 {
   int LineIndex;
@@ -48,7 +50,7 @@ struct MarkedFragment
 
 struct ExprColor
 {
-  wchar_t Expression[50];
+  wchar_t Expression[128];
   TColor Color;
 
   ExprColor(const wchar_t *expr, TColor color)
@@ -65,5 +67,16 @@ int HighlightSource(TRichEdit *src, int line_ind); //підсвічує синтаксис у поточ
 int HighlightSourceFull(TRichEdit *src); //підсвічує синтаксис у всьому тексті
 void MarkFragmentsInLine(TRichEdit *src, int line_ind);
 String CreateDummyString(int length);
-void AddFunctionHighlight(const wchar_t *func_name, TColor highlight_color);
+void AddFunctionHighlight(const wchar_t *func_name);
+void AddLexemeHighlight(const wchar_t *text, bool case_sensitive, TColor highlight_color);
+bool LexemeExists(const wchar_t *text);
+void FindLexeme(TRichEdit *src, int line_ind, const wchar_t *st_symb, const wchar_t *end_symb,
+				bool case_sensitive, TColor highlight_color);
+
+void FindFunctions(TRichEdit *src, int line_ind);
+void FindProcedures(TRichEdit *src, int line_ind);
+void FindObjects(TRichEdit *src, int line_ind);
+void FindVariables(TRichEdit *src, int line_ind);
+void FindComments(TRichEdit *src, int line_ind);
+
 #endif

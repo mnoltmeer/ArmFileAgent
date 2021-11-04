@@ -1,5 +1,5 @@
 /*!
-Copyright 2019-2020  Maxim Noltmeer (m.noltmeer@gmail.com)
+Copyright 2019-2021  Maxim Noltmeer (m.noltmeer@gmail.com)
 
 This file is part of ELI IDE.
 
@@ -25,22 +25,45 @@ This file is part of ELI IDE.
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 
+wchar_t EndSymb[] = {'=', '+', '-', '*',
+					 '/', '(', ')', ',',
+					 '.', '$', '&', '#',
+					 ':', '?', ' ', '\0',
+                     '_', '\''
+					 };
+int EndSymbSz = 18;
+
 const wchar_t *VARSYM = L"$";
 const wchar_t *OBJSYM = L"&";
 const wchar_t *STRSYM = L"'";
 
-static std::vector<ExprColor> ExpColors;
+TColor HlDirect, HlExpr, HlVarSym, HlObjSym, HlComment, HlBrace, HlEndl, HlFunc;
+
+static std::vector<ExprColor> ExpColors; //перелік динамічних лексем, очищується
+										 //перед кожною операцією підсвітки
+static std::vector<ExprColor> PreDefinedColors; //перелік попереднь визначених лексем
 
 static std::vector<MarkedFragment> vecSelFragments; //вектор, куди додаються параметри фрагментів,
 													//які треба розфарбувати
 
 extern String UsedAppLogDir;
+//---------------------------------------------------------------------------
+
+bool IsEndSym(wchar_t symb)
+{
+  for (int i = 0; i < EndSymbSz; i++)
+	 {
+	   if (symb == EndSymb[i])
+		 return true;
+	 }
+
+  return false;
+}
+//---------------------------------------------------------------------------
 
 void InitExprColors(int theme_style)
 {
   ExpColors.clear();
-
-  TColor HlDirect, HlExpr, HlVarSym, HlObjSym, HlComment, HlBrace, HlEndl, HlFunc;
 
   if (theme_style == ESH_LIGHT_THEME) //світла тема
 	{
@@ -66,89 +89,52 @@ void InitExprColors(int theme_style)
 	}
 
 //директиви
-   ExpColors.push_back(ExprColor(L"#endl", HlDirect));
-   ExpColors.push_back(ExprColor(L"#begin", HlDirect));
-   ExpColors.push_back(ExprColor(L"#end", HlDirect));
-   ExpColors.push_back(ExprColor(L"#include", HlDirect));
-   ExpColors.push_back(ExprColor(L"#exit", HlDirect));
-   ExpColors.push_back(ExprColor(L"#procedure", HlDirect));
-   ExpColors.push_back(ExprColor(L"#drop procedure", HlDirect));
-   ExpColors.push_back(ExprColor(L"#make", HlDirect));
-   ExpColors.push_back(ExprColor(L"#run", HlDirect));
-   ExpColors.push_back(ExprColor(L"#class", HlDirect));
-   ExpColors.push_back(ExprColor(L"#modify class", HlDirect));
-   ExpColors.push_back(ExprColor(L"#property", HlDirect));
-   ExpColors.push_back(ExprColor(L"#method", HlDirect));
-   ExpColors.push_back(ExprColor(L"#public property", HlDirect));
-   ExpColors.push_back(ExprColor(L"#public method", HlDirect));
-   ExpColors.push_back(ExprColor(L"#drop property", HlDirect));
-   ExpColors.push_back(ExprColor(L"#drop method", HlDirect));
-   ExpColors.push_back(ExprColor(L"#drop class", HlDirect));
-   ExpColors.push_back(ExprColor(L"#return", HlDirect));
-   ExpColors.push_back(ExprColor(L"#var", HlDirect));
-   ExpColors.push_back(ExprColor(L"#varstack", HlDirect));
-   ExpColors.push_back(ExprColor(L"#funcstack", HlDirect));
-   ExpColors.push_back(ExprColor(L"#prmstack", HlDirect));
-   ExpColors.push_back(ExprColor(L"#objstack", HlDirect));
-   ExpColors.push_back(ExprColor(L"#clstack", HlDirect));
-   ExpColors.push_back(ExprColor(L"#procstack", HlDirect));
-   ExpColors.push_back(ExprColor(L"#frgstack", HlDirect));
-   ExpColors.push_back(ExprColor(L"#protect", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#endl", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#begin", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#end", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#include", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#exit", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#procedure", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#drop procedure", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#make", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#run", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#class", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#modify class", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#property", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#method", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#public property", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#public method", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#drop property", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#drop method", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#drop class", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#return", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#varstack", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#funcstack", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#prmstack", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#objstack", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#clstack", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#procstack", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#frgstack", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#protect", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#trigger", HlDirect));
+   PreDefinedColors.push_back(ExprColor(L"#drop trigger", HlDirect));
 
 //зарезервовані слова та вирази
-   ExpColors.push_back(ExprColor(L"if", HlExpr));
-   ExpColors.push_back(ExprColor(L"else", HlExpr));
-   ExpColors.push_back(ExprColor(L"for", HlExpr));
-   ExpColors.push_back(ExprColor(L"count", HlExpr));
-   ExpColors.push_back(ExprColor(L"while", HlExpr));
-   ExpColors.push_back(ExprColor(L"select", HlExpr));
-   ExpColors.push_back(ExprColor(L"when", HlExpr));
-   ExpColors.push_back(ExprColor(L"sym", HlExpr));
-   ExpColors.push_back(ExprColor(L"num", HlExpr));
+   PreDefinedColors.push_back(ExprColor(L"if", HlExpr));
+   PreDefinedColors.push_back(ExprColor(L"else", HlExpr));
+   PreDefinedColors.push_back(ExprColor(L"for", HlExpr));
+   PreDefinedColors.push_back(ExprColor(L"count", HlExpr));
+   PreDefinedColors.push_back(ExprColor(L"while", HlExpr));
+   PreDefinedColors.push_back(ExprColor(L"select", HlExpr));
+   PreDefinedColors.push_back(ExprColor(L"when", HlExpr));
+   PreDefinedColors.push_back(ExprColor(L"sym", HlExpr));
+   PreDefinedColors.push_back(ExprColor(L"num", HlExpr));
 
 //спеціальні символи
-   ExpColors.push_back(ExprColor(VARSYM, HlVarSym));
-   ExpColors.push_back(ExprColor(OBJSYM, HlObjSym));
-   ExpColors.push_back(ExprColor(L"//", HlComment));
-   ExpColors.push_back(ExprColor(L"{", HlBrace));
-   ExpColors.push_back(ExprColor(L"}", HlBrace));
-   ExpColors.push_back(ExprColor(L";", HlEndl));
-
-//функції
-  AddFunctionHighlight(L"_Random", HlFunc);
-  AddFunctionHighlight(L"_Round", HlFunc);
-  AddFunctionHighlight(L"_Int", HlFunc);
-  AddFunctionHighlight(L"_StrLen", HlFunc);
-  AddFunctionHighlight(L"_StrEq", HlFunc);
-  AddFunctionHighlight(L"_IStrEq", HlFunc);
-  AddFunctionHighlight(L"_SubStr", HlFunc);
-  AddFunctionHighlight(L"_Return", HlFunc);
-  AddFunctionHighlight(L"_Throw", HlFunc);
-  AddFunctionHighlight(L"_Free", HlFunc);
-  AddFunctionHighlight(L"_LoadObjStack", HlFunc);
-  AddFunctionHighlight(L"_SaveObjStack", HlFunc);
-  AddFunctionHighlight(L"_SaveObjects", HlFunc);
-  AddFunctionHighlight(L"_Run", HlFunc);
-  AddFunctionHighlight(L"_GetParamAsNum", HlFunc);
-  AddFunctionHighlight(L"_GetParamAsStr", HlFunc);
-  AddFunctionHighlight(L"_SetParam", HlFunc);
-  AddFunctionHighlight(L"_LoadFileToVar", HlFunc);
-  AddFunctionHighlight(L"_SaveVarToFile", HlFunc);
-  AddFunctionHighlight(L"_SaveFragmentToFile", HlFunc);
-  AddFunctionHighlight(L"_GetConfig", HlFunc);
-  AddFunctionHighlight(L"_SaveState", HlFunc);
-  AddFunctionHighlight(L"_SaveVarStack", HlFunc);
-  AddFunctionHighlight(L"_WriteOut", HlFunc);
-  AddFunctionHighlight(L"_ReadIn", HlFunc);
-  AddFunctionHighlight(L"_System", HlFunc);
-  AddFunctionHighlight(L"_LastError", HlFunc);
-  AddFunctionHighlight(L"_ConnectLib", HlFunc);
-  AddFunctionHighlight(L"_FreeLib", HlFunc);
-  AddFunctionHighlight(L"_ImportFunc", HlFunc);
-  AddFunctionHighlight(L"_DebugIntoFile", HlFunc);
-  AddFunctionHighlight(L"_DebugIntoScreen", HlFunc);
-  AddFunctionHighlight(L"_StopDebug", HlFunc);
-  AddFunctionHighlight(L"_Sleep", HlFunc);
+   PreDefinedColors.push_back(ExprColor(L"/", HlComment));
+   PreDefinedColors.push_back(ExprColor(L"{", HlBrace));
+   PreDefinedColors.push_back(ExprColor(L"}", HlBrace));
+   PreDefinedColors.push_back(ExprColor(L";", HlEndl));
 }
 //---------------------------------------------------------------------------
 
@@ -223,7 +209,14 @@ void MarkFragmentsInLine(TRichEdit *src, int line_ind)
 {
   try
 	 {
+	   ExpColors.clear();
 	   vecSelFragments.clear();
+
+	   FindComments(src, line_ind);
+	   FindFunctions(src, line_ind);
+	   FindProcedures(src, line_ind);
+	   FindObjects(src, line_ind);
+	   FindVariables(src, line_ind);
 
 	   String text = src->Lines->Strings[line_ind];
 	   unsigned int cnt_sym_before = 0;
@@ -235,18 +228,34 @@ void MarkFragmentsInLine(TRichEdit *src, int line_ind)
 	   src->SelLength = src->Lines->Strings[line_ind].Length();
 	   src->SelAttributes->Color = src->Font->Color;
 
+	   int pos, expr_len;
+
 	   for (int i = 0; i < ExpColors.size(); i++)
 		  {
-			int pos;
-
 			while (pos = text.Pos(ExpColors[i].Expression))
 			  {
-				int expr_len = wcslen(ExpColors[i].Expression);
+				expr_len = wcslen(ExpColors[i].Expression);
 
 				MarkedFragment frg = MarkedFragment(line_ind,
 													cnt_sym_before + line_ind + pos - 1,
 													expr_len,
 													ExpColors[i].Color);
+				vecSelFragments.push_back(frg);
+				text.Delete(pos, expr_len);
+				text.Insert(CreateDummyString(expr_len), pos);
+			  }
+		  }
+
+	   for (int i = 0; i < PreDefinedColors.size(); i++)
+		  {
+			while (pos = text.Pos(PreDefinedColors[i].Expression))
+			  {
+				expr_len = wcslen(PreDefinedColors[i].Expression);
+
+				MarkedFragment frg = MarkedFragment(line_ind,
+													cnt_sym_before + line_ind + pos - 1,
+													expr_len,
+													PreDefinedColors[i].Color);
 				vecSelFragments.push_back(frg);
 				text.Delete(pos, expr_len);
 				text.Insert(CreateDummyString(expr_len), pos);
@@ -267,13 +276,11 @@ String CreateDummyString(int length)
   try
 	 {
 	   for (int i = 0; i < length; i++)
-		  {
-			res += '~';
-		  }
+		  res += '~';
 	 }
   catch (Exception &e)
 	 {
-	   SaveLogToUserFolder("IDE.log", "ELI", "ELISourceHighlighter::MarkFragmentsInLine: " + e.ToString());
+	   SaveLogToUserFolder("IDE.log", "ELI", "ELISourceHighlighter::CreateDummyString: " + e.ToString());
        res = "";
 	 }
 
@@ -281,11 +288,148 @@ String CreateDummyString(int length)
 }
 //---------------------------------------------------------------------------
 
-void AddFunctionHighlight(const wchar_t *func_name, TColor highlight_color)
+void AddFunctionHighlight(const wchar_t *func_name)
 {
-  ExpColors.push_back(ExprColor(func_name, highlight_color));
-  ExpColors.push_back(ExprColor(UpperCase(func_name).c_str(), highlight_color));
-  ExpColors.push_back(ExprColor(LowerCase(func_name).c_str(), highlight_color));
+  AddLexemeHighlight(func_name, false, HlFunc);
+}
+//---------------------------------------------------------------------------
+
+void AddLexemeHighlight(const wchar_t *text, bool case_sensitive, TColor highlight_color)
+{
+  if (LexemeExists(text))
+	return;
+
+  ExpColors.push_back(ExprColor(text, highlight_color));
+
+  if (!case_sensitive)
+	{
+	  ExpColors.push_back(ExprColor(UpperCase(text).c_str(), highlight_color));
+	  ExpColors.push_back(ExprColor(LowerCase(text).c_str(), highlight_color));
+    }
+}
+//---------------------------------------------------------------------------
+
+bool LexemeExists(const wchar_t *text)
+{
+  for (int i = 0; i < ExpColors.size(); i++)
+	 {
+	   if (_wcscmpi(ExpColors[i].Expression, text) == 0)
+		 {
+		   MessageBox(NULL, ExpColors[i].Expression, L"", MB_OK);
+		   return true;
+
+         }
+	 }
+
+  return false;
+}
+//---------------------------------------------------------------------------
+
+void FindLexeme(TRichEdit *src, int line_ind, const wchar_t *st_symb, const wchar_t *end_symb,
+				bool case_sensitive, TColor highlight_color)
+{
+  try
+	 {
+	   String text = src->Lines->Strings[line_ind];
+
+	   if (text.Pos(st_symb))
+		 {
+		   int op = 0, cl = 0;
+
+		   for (int i = 1; i <= text.Length(); i++)
+			  {
+				if (text[i] == st_symb[0])
+				  op = i;
+				else if (op)
+				  {
+					if (end_symb)
+					  {
+						if (end_symb[0] == text[i])
+                          cl = i;
+					  }
+					else if (IsEndSym(text[i]))
+					  cl = i;
+				  }
+
+				if (op && cl)
+				  {
+					String lexeme = text.SubString(op, cl - op);
+					AddLexemeHighlight(lexeme.c_str(), case_sensitive, highlight_color);
+					op = 0;
+					cl = 0;
+                  }
+			  }
+         }
+	 }
+  catch (Exception &e)
+	 {
+	   throw e;
+	 }
+}
+//---------------------------------------------------------------------------
+
+void FindFunctions(TRichEdit *src, int line_ind)
+{
+  try
+	 {
+	   FindLexeme(src, line_ind, L"_", NULL, false, HlFunc);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("IDE.log", "ELI", "ELISourceHighlighter::FindFunctions: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
+void FindProcedures(TRichEdit *src, int line_ind)
+{
+  try
+	 {
+	   FindLexeme(src, line_ind, L":", NULL, false, HlFunc);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("IDE.log", "ELI", "ELISourceHighlighter::FindProcedures: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
+void FindObjects(TRichEdit *src, int line_ind)
+{
+  try
+	 {
+	   FindLexeme(src, line_ind, OBJSYM, NULL, true, HlObjSym);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("IDE.log", "ELI", "ELISourceHighlighter::FindObjects: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
+void FindVariables(TRichEdit *src, int line_ind)
+{
+  try
+	 {
+	   FindLexeme(src, line_ind, VARSYM, NULL, true, HlVarSym);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("IDE.log", "ELI", "ELISourceHighlighter::FindVariables: " + e.ToString());
+	 }
+}
+//---------------------------------------------------------------------------
+
+void FindComments(TRichEdit *src, int line_ind)
+{
+  try
+	 {
+	   FindLexeme(src, line_ind, L"//", L";", false, HlComment);
+	 }
+  catch (Exception &e)
+	 {
+	   SaveLogToUserFolder("IDE.log", "ELI", "ELISourceHighlighter::FindComments: " + e.ToString());
+	 }
 }
 //---------------------------------------------------------------------------
 

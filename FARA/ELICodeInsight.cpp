@@ -338,6 +338,21 @@ void InitLexems()
 			"translates code safely. When an error occurs, it writes message to log and continues the translation",
 			"#protect {}");
 
+  AddLexeme("directive",
+			"#trigger <condition> {<some code>} ",
+			"declares a trigger. Trigger this\
+a deferred piece of code that will be executed if the condition declared in the trigger is\
+will be true. The trigger is declared once and checked for firing after\
+translations of each line of the script. Trigger execution does not affect the broadcast in any way\
+the main script, even if errors were received during the translation of the trigger body, or\
+an exception was thrown",
+			"#trigger {}");
+
+  AddLexeme("directive",
+			"#drop trigger <condition>",
+			"drops trigger",
+			"#drop trigger ");
+
 //методи
   AddLexeme("object method",
 			".Сreate(sym cathegory, sym ctor_args)",
